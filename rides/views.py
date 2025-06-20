@@ -106,6 +106,7 @@ def home_view(request):
     
     return render(request, 'rides/home.html', context)
 
+@login_required
 def index_view(request):
     """配車計画一覧画面"""
     # 募集中の配車計画を取得（最新順）
@@ -167,6 +168,7 @@ def index_view(request):
     
     return render(request, 'rides/index.html', context)
 
+@login_required
 def ride_detail_view(request, ride_id):
     """配車計画詳細画面"""
     ride = get_object_or_404(RidePlan, id=ride_id)
