@@ -1,0 +1,1 @@
+web: gunicorn sharetogo.wsgi --log-file - 
