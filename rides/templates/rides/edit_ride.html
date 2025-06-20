@@ -1,0 +1,206 @@
+{% extends 'rides/base.html' %}
+
+{% block title %}配車計画編集 - {{ ride.title }} - Share-to-Go{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0">
+                    <i class="bi bi-pencil"></i> 配車計画編集
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <!-- 編集制限の警告 -->
+                {% if ride.current_participants > 0 %}
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-exclamation-triangle"></i> 編集制限</h6>
+                        <p class="mb-0">参加者がいる配車計画は編集できません。参加者に連絡してから編集してください。</p>
+                    </div>
+                {% endif %}
+                
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <!-- タイトル -->
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">
+                                {{ form.title.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.title.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.title.help_text %}
+                                <div class="form-text">{{ form.title.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 出発地・目的地 -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.departure_location.id_for_label }}" class="form-label">
+                                {{ form.departure_location.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.departure_location }}
+                            {% if form.departure_location.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.departure_location.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.departure_location.help_text %}
+                                <div class="form-text">{{ form.departure_location.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.destination.id_for_label }}" class="form-label">
+                                {{ form.destination.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.destination }}
+                            {% if form.destination.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.destination.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.destination.help_text %}
+                                <div class="form-text">{{ form.destination.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 出発日時 -->
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.departure_time.id_for_label }}" class="form-label">
+                                {{ form.departure_time.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.departure_time }}
+                            {% if form.departure_time.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.departure_time.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.departure_time.help_text %}
+                                <div class="form-text">{{ form.departure_time.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 締切日時 -->
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.deadline_time.id_for_label }}" class="form-label">
+                                {{ form.deadline_time.label }}
+                            </label>
+                            {{ form.deadline_time }}
+                            {% if form.deadline_time.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.deadline_time.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.deadline_time.help_text %}
+                                <div class="form-text">{{ form.deadline_time.help_text }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 締切日時を設定しない場合、出発1時間前が自動的に締切となります。
+                            </div>
+                        </div>
+                        
+                        <!-- 参加者数・料金 -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.max_participants.id_for_label }}" class="form-label">
+                                {{ form.max_participants.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.max_participants }}
+                            {% if form.max_participants.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.max_participants.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.max_participants.help_text %}
+                                <div class="form-text">{{ form.max_participants.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.price_per_person.id_for_label }}" class="form-label">
+                                {{ form.price_per_person.label }}
+                            </label>
+                            {{ form.price_per_person }}
+                            {% if form.price_per_person.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.price_per_person.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.price_per_person.help_text %}
+                                <div class="form-text">{{ form.price_per_person.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 説明 -->
+                        <div class="col-12 mb-4">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.description.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.description.help_text %}
+                                <div class="form-text">{{ form.description.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- ボタン群 -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'rides:ride_detail' ride.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> キャンセル
+                        </a>
+                        <div>
+                            <a href="{% url 'rides:delete_ride' ride.id %}" class="btn btn-outline-danger me-2">
+                                <i class="bi bi-trash"></i> 削除
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-check-circle"></i> 更新する
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

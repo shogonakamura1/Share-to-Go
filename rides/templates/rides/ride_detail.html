@@ -1,0 +1,267 @@
+{% extends 'rides/base.html' %}
+
+{% block title %}{{ ride.title }} - Share-to-Go{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- 配車計画詳細 -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-car-front"></i> {{ ride.title }}
+                    </h4>
+                    <span class="badge bg-light text-dark">
+                        {% if ride.status == 'active' %}
+                            <i class="bi bi-check-circle"></i> 募集中
+                        {% elif ride.status == 'full' %}
+                            <i class="bi bi-x-circle"></i> 定員満員
+                        {% elif ride.status == 'cancelled' %}
+                            <i class="bi bi-x-circle"></i> キャンセル
+                        {% elif ride.status == 'completed' %}
+                            <i class="bi bi-check-circle"></i> 完了
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 基本情報 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-geo-alt"></i> 出発地</h6>
+                        <p class="text-muted">{{ ride.departure_location }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-geo-alt-fill"></i> 目的地</h6>
+                        <p class="text-muted">{{ ride.destination }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-calendar-event"></i> 出発日時</h6>
+                        <p class="text-muted">{{ ride.departure_time|date:"Y年m月d日 H:i" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-clock"></i> 締切時間</h6>
+                        {% if ride.deadline_time %}
+                            <p class="text-muted">{{ ride.deadline_time|date:"Y年m月d日 H:i" }}</p>
+                        {% else %}
+                            <p class="text-muted">{{ ride.deadline_time_auto|date:"Y年m月d日 H:i" }} <small>(自動)</small></p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-people"></i> 参加者数</h6>
+                        <p class="text-muted">{{ ride.current_participants }}/{{ ride.max_participants }}人</p>
+                    </div>
+                </div>
+                
+                {% if ride.price_per_person %}
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-currency-yen"></i> 一人あたりの料金</h6>
+                        <p class="text-muted">{{ ride.price_per_person }}円</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if ride.description %}
+                <div class="mb-4">
+                    <h6><i class="bi bi-chat-text"></i> 説明</h6>
+                    <p class="text-muted">{{ ride.description|linebreaks }}</p>
+                </div>
+                {% endif %}
+                
+                <!-- 作成者情報 -->
+                <div class="mb-4">
+                    <h6><i class="bi bi-person"></i> 作成者</h6>
+                    <p class="text-muted">{{ ride.creator.username }}</p>
+                </div>
+                
+                <!-- 作成日時 -->
+                <div class="text-muted small">
+                    <i class="bi bi-clock"></i> {{ ride.created_at|date:"Y年m月d日 H:i" }}作成
+                </div>
+            </div>
+        </div>
+        
+        <!-- 参加者一覧 -->
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-people-fill"></i> 参加者一覧
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if participants %}
+                    <div class="list-group list-group-flush">
+                        {% for participant in participants %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <i class="bi bi-person-circle"></i> {{ participant.user.username }}
+                                        {% if participant.user == ride.creator %}
+                                            <span class="badge bg-primary ms-2">作成者</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ participant.created_at|date:"m/d H:i" }}参加
+                                    </small>
+                                </div>
+                                
+                                <!-- 乗降場所情報 -->
+                                {% if participant.pickup_location_name or participant.dropoff_location_name %}
+                                    <div class="small text-muted">
+                                        {% if participant.pickup_location_name %}
+                                            <div class="mb-1">
+                                                <i class="bi bi-geo-alt text-success"></i> 
+                                                <strong>乗車:</strong> {{ participant.pickup_location_name }}
+                                            </div>
+                                        {% endif %}
+                                        {% if participant.dropoff_location_name %}
+                                            <div>
+                                                <i class="bi bi-geo-alt-fill text-danger"></i> 
+                                                <strong>降車:</strong> {{ participant.dropoff_location_name }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-3">
+                        <i class="bi bi-people"></i> まだ参加者がいません
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- アクションボタン -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear"></i> アクション
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if user.is_authenticated %}
+                    {% if user_participation %}
+                        {% if user_participation.status == 'confirmed' %}
+                            <!-- 参加済みの場合 -->
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i> 参加済みです
+                            </div>
+                            <form method="post" action="{% url 'rides:cancel_reservation' ride.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger w-100" 
+                                        onclick="return confirm('本当に参加をキャンセルしますか？')">
+                                    <i class="bi bi-x-circle"></i> 参加をキャンセル
+                                </button>
+                            </form>
+                        {% elif user_participation.status == 'pending' %}
+                            <!-- 保留中の場合 -->
+                            <div class="alert alert-warning">
+                                <i class="bi bi-clock"></i> 参加申し込み中です
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- 未参加の場合 -->
+                        {% if ride.creator == user %}
+                            <!-- 作成者の場合 -->
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 自分が作成した配車計画です
+                            </div>
+                            <a href="{% url 'rides:edit_ride' ride.id %}" class="btn btn-primary w-100 mb-2">
+                                <i class="bi bi-pencil"></i> 編集
+                            </a>
+                            <a href="{% url 'rides:delete_ride' ride.id %}" class="btn btn-outline-danger w-100"
+                               onclick="return confirm('本当に削除しますか？')">
+                                <i class="bi bi-trash"></i> 削除
+                            </a>
+                        {% elif ride.is_full %}
+                            <!-- 定員満員の場合 -->
+                            <div class="alert alert-warning">
+                                <i class="bi bi-x-circle"></i> 定員に達しています
+                            </div>
+                            <button class="btn btn-secondary w-100" disabled>
+                                予約できません
+                            </button>
+                        {% elif ride.is_expired %}
+                            <!-- 期限切れの場合 -->
+                            <div class="alert alert-danger">
+                                <i class="bi bi-clock"></i> 期限切れです
+                            </div>
+                            <button class="btn btn-secondary w-100" disabled>
+                                予約できません
+                            </button>
+                        {% else %}
+                            <!-- 予約可能の場合 -->
+                            <a href="{% url 'rides:reservation' ride.id %}" class="btn btn-success w-100">
+                                <i class="bi bi-calendar-check"></i> 参加する
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                    <!-- 未ログインの場合 -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> 参加するにはログインが必要です
+                    </div>
+                    <a href="{% url 'rides:login' %}" class="btn btn-primary w-100">
+                        <i class="bi bi-box-arrow-in-right"></i> ログイン
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 配車計画情報 -->
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> 配車計画情報
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ ride.current_participants }}</h4>
+                        <small class="text-muted">参加者数</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">{{ ride.max_participants }}</h4>
+                        <small class="text-muted">定員</small>
+                    </div>
+                </div>
+                
+                <!-- 進捗バー -->
+                <div class="progress mt-3">
+                    <div class="progress-bar" role="progressbar" 
+                         style="width: {% widthratio ride.current_participants ride.max_participants 100 %}%"
+                         aria-valuenow="{{ ride.current_participants }}" 
+                         aria-valuemin="0" aria-valuemax="{{ ride.max_participants }}">
+                    </div>
+                </div>
+                
+                <div class="text-center mt-2">
+                    <small class="text-muted">
+                        残り {{ ride.remaining_seats }}席
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 戻るボタン -->
+<div class="text-center mt-4">
+    <a href="{% url 'rides:index' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 配車計画一覧に戻る
+    </a>
+</div>
+{% endblock %} 

@@ -1,0 +1,51 @@
+{% extends 'rides/base.html' %}
+
+{% block title %}ログイン - Share-to-Go{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-box-arrow-in-right"></i> ログイン
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label">
+                            <i class="bi bi-person"></i> ユーザー名
+                        </label>
+                        <input type="text" class="form-control" id="id_username" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">
+                            <i class="bi bi-lock"></i> パスワード
+                        </label>
+                        <input type="password" class="form-control" id="id_password" name="password" required>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-in-right"></i> ログイン
+                        </button>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p class="mb-0">アカウントをお持ちでない方は</p>
+                    <a href="{% url 'rides:signup' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-person-plus"></i> 新規登録
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

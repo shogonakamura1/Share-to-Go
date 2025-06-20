@@ -1,0 +1,702 @@
+{% extends 'rides/base.html' %}
+
+{% block title %}参加確認 - {{ ride.title }} - Share-to-Go{% endblock %}
+
+{% block extra_head %}
+<style>
+    #map {
+        height: 400px;
+        width: 100%;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+    .location-input {
+        margin-bottom: 15px;
+    }
+    .coordinates-input {
+        display: none;
+    }
+    .map-controls {
+        margin-bottom: 15px;
+    }
+    .location-preview {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        font-size: 0.9em;
+    }
+    .api-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-calendar-check"></i> 参加確認
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- 配車計画詳細 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="bi bi-car-front"></i> 配車計画詳細
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-geo-alt"></i> 出発地</h6>
+                                <p class="text-muted">{{ ride.departure_location }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-geo-alt-fill"></i> 目的地</h6>
+                                <p class="text-muted">{{ ride.destination }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-calendar"></i> 出発日時</h6>
+                                <p class="text-muted">{{ ride.departure_time|date:"Y年m月d日 (D) H:i" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-people"></i> 参加者数</h6>
+                                <p class="text-muted">{{ ride.current_participants }}/{{ ride.max_participants }}人</p>
+                            </div>
+                        </div>
+                        
+                        {% if ride.price_per_person %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-currency-yen"></i> 一人あたりの料金</h6>
+                                <p class="text-muted">{{ ride.price_per_person }}円</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if ride.description %}
+                        <div class="mt-3">
+                            <h6><i class="bi bi-chat-text"></i> 説明</h6>
+                            <p class="text-muted">{{ ride.description|linebreaks }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mt-3">
+                            <h6><i class="bi bi-person"></i> 作成者</h6>
+                            <p class="text-muted">{{ ride.creator.username }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 乗降場所指定フォーム -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="bi bi-geo-alt"></i> 乗降場所の指定
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if not google_maps_enabled %}
+                        <div class="api-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Google Maps APIキーが設定されていません。</strong><br>
+                            地図機能を使用するには、Google Cloud ConsoleでAPIキーを取得し、環境変数 <code>GOOGLE_MAPS_API_KEY</code> に設定してください。
+                        </div>
+                        {% endif %}
+                        
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <!-- 地図 -->
+                            {% if google_maps_enabled %}
+                            <div id="map" style="height: 400px; width: 100%; background-color: #f0f0f0; border: 1px solid #ccc; margin-bottom: 10px;"></div>
+                            <div class="map-controls mb-3">
+                                <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="getCurrentLocation('pickup')">
+                                    <i class="bi bi-geo-alt"></i> 現在地に移動
+                                </button>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> 地図機能を有効にするには、Google Maps APIキーを設定してください。
+                            </div>
+                            {% endif %}
+                            
+                            <!-- 乗車場所 -->
+                            <div class="location-input">
+                                <h6><i class="bi bi-geo-alt"></i> 乗車場所 <span class="text-danger">*</span></h6>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        {{ form.pickup_location_name }}
+                                        {% if form.pickup_location_name.errors %}
+                                            <div class="text-danger small">{{ form.pickup_location_name.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="form-text">地図をクリックするか、住所を入力してください</div>
+                                    </div>
+                                </div>
+                                <div class="row coordinates-input" id="pickup-coordinates">
+                                    <div class="col-md-6">
+                                        {{ form.pickup_latitude }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        {{ form.pickup_longitude }}
+                                    </div>
+                                </div>
+                                <div class="location-preview" id="pickup-preview" style="display: none;">
+                                    <strong>乗車場所:</strong> <span id="pickup-preview-text"></span>
+                                </div>
+                            </div>
+                            
+                            <!-- 降車場所指定ボタン -->
+                            <div class="dropoff-section" id="dropoff-section" style="display: none;">
+                                <div class="text-center mb-3">
+                                    <button type="button" class="btn btn-outline-success" onclick="showDropoffMap()">
+                                        <i class="bi bi-geo-alt-fill"></i> 降車場所も指定
+                                    </button>
+                                </div>
+                                
+                                <!-- 降車場所地図 -->
+                                <div id="dropoff-map-container" style="display: none;">
+                                    <div id="dropoff-map" style="height: 400px; width: 100%; background-color: #f0f0f0; border: 1px solid #ccc; margin-bottom: 10px;"></div>
+                                    <div class="map-controls mb-3">
+                                        <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="getCurrentLocationDropoff()">
+                                            <i class="bi bi-geo-alt"></i> 現在地に移動
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- 降車場所入力 -->
+                                    <div class="location-input">
+                                        <h6><i class="bi bi-geo-alt-fill"></i> 降車場所（任意）</h6>
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                {{ form.dropoff_location_name }}
+                                                {% if form.dropoff_location_name.errors %}
+                                                    <div class="text-danger small">{{ form.dropoff_location_name.errors.0 }}</div>
+                                                {% endif %}
+                                                <div class="form-text">地図をクリックするか、住所を入力してください</div>
+                                            </div>
+                                        </div>
+                                        <div class="row coordinates-input" id="dropoff-coordinates">
+                                            <div class="col-md-6">
+                                                {{ form.dropoff_latitude }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                {{ form.dropoff_longitude }}
+                                            </div>
+                                        </div>
+                                        <div class="location-preview" id="dropoff-preview" style="display: none;">
+                                            <strong>降車場所:</strong> <span id="dropoff-preview-text"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 参加確認ボタン -->
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="bi bi-calendar-check"></i> 参加する
+                                </button>
+                                <a href="{% url 'rides:ride_detail' ride.id %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left"></i> 戻る
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google Maps API -->
+{% if google_maps_enabled %}
+    <script>
+        // グローバル変数の定義
+        let map;
+        let pickupMarker;
+        let dropoffMarker;
+        let geocoder;
+        let dropoffMap;
+        let dropoffMapInitialized = false;
+        
+        // initMap関数の定義
+        function initMap() {
+            console.log('initMap関数が呼び出されました');
+            
+            // デフォルトの位置（姪浜）
+            const defaultLocation = { lat: 33.5833, lng: 130.3167 };
+            
+            const mapElement = document.getElementById('map');
+            console.log('地図要素:', mapElement);
+            
+            if (!mapElement) {
+                console.error('地図要素が見つかりません');
+                return;
+            }
+            
+            try {
+                map = new google.maps.Map(mapElement, {
+                    zoom: 13,
+                    center: defaultLocation,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    fullscreenControl: true,
+                    gestureHandling: 'cooperative',
+                    disableDefaultUI: false,
+                });
+                
+                console.log('地図が正常に初期化されました');
+                
+                geocoder = new google.maps.Geocoder();
+                
+                // マーカーを作成
+                pickupMarker = new google.maps.Marker({
+                    map: map,
+                    position: defaultLocation,
+                    title: '乗車場所',
+                    draggable: true,
+                    icon: {
+                        url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
+                    }
+                });
+                
+                dropoffMarker = new google.maps.Marker({
+                    map: map,
+                    position: defaultLocation,
+                    title: '降車場所',
+                    draggable: true,
+                    icon: {
+                        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                    },
+                    visible: false
+                });
+                
+                console.log('マーカーが正常に作成されました');
+                
+                // 乗車場所マーカーのドラッグ終了イベント
+                pickupMarker.addListener('dragend', function(event) {
+                    const position = event.latLng;
+                    updateLocationFromPosition('pickup', position);
+                });
+                
+                // 地図の表示を強制更新
+                setTimeout(function() {
+                    if (map) {
+                        google.maps.event.trigger(map, 'resize');
+                        map.setCenter(defaultLocation);
+                        console.log('地図の表示を強制更新しました');
+                    }
+                }, 100);
+                
+                // 地図クリックでマーカーを配置
+                map.addListener('click', function(event) {
+                    const position = event.latLng;
+                    updateLocationFromPosition('pickup', position);
+                });
+                
+                // 地図の読み込み完了を待つ
+                google.maps.event.addListenerOnce(map, 'idle', function() {
+                    console.log('地図の読み込みが完了しました');
+                });
+                
+            } catch (error) {
+                console.error('地図の初期化中にエラーが発生しました:', error);
+            }
+        }
+        
+        // 位置情報から住所を更新する共通関数
+        function updateLocationFromPosition(type, position) {
+            console.log('位置情報から住所を更新します。タイプ:', type, '位置:', position);
+            
+            // 座標値を6桁の小数に丸める
+            const lat = parseFloat(position.lat().toFixed(6));
+            const lng = parseFloat(position.lng().toFixed(6));
+            
+            geocoder.geocode({ location: position }, function(results, status) {
+                if (status === 'OK' && results[0]) {
+                    const address = results[0].formatted_address;
+                    console.log('住所を取得しました:', address);
+                    
+                    if (type === 'pickup') {
+                        const pickupNameField = document.getElementById('pickup_location_name');
+                        const pickupLatField = document.getElementById('pickup_latitude');
+                        const pickupLngField = document.getElementById('pickup_longitude');
+                        
+                        pickupNameField.value = address;
+                        pickupLatField.value = lat;
+                        pickupLngField.value = lng;
+                        
+                        console.log('乗車場所フィールドを更新:', {
+                            name: pickupNameField.value,
+                            lat: pickupLatField.value,
+                            lng: pickupLngField.value
+                        });
+                        
+                        pickupMarker.setPosition(position);
+                        document.getElementById('pickup-coordinates').style.display = 'block';
+                        showLocationPreview('pickup', address);
+                        
+                        // 乗車場所が設定されたら降車場所指定ボタンを表示
+                        document.getElementById('dropoff-section').style.display = 'block';
+                    } else if (type === 'dropoff') {
+                        const dropoffNameField = document.getElementById('dropoff_location_name');
+                        const dropoffLatField = document.getElementById('dropoff_latitude');
+                        const dropoffLngField = document.getElementById('dropoff_longitude');
+                        
+                        dropoffNameField.value = address;
+                        dropoffLatField.value = lat;
+                        dropoffLngField.value = lng;
+                        
+                        console.log('降車場所フィールドを更新:', {
+                            name: dropoffNameField.value,
+                            lat: dropoffLatField.value,
+                            lng: dropoffLngField.value
+                        });
+                        
+                        dropoffMarker.setPosition(position);
+                        dropoffMarker.setVisible(true);
+                        document.getElementById('dropoff-coordinates').style.display = 'block';
+                        showLocationPreview('dropoff', address);
+                    }
+                } else {
+                    console.error('逆ジオコーディングに失敗しました:', status);
+                    // 座標のみで設定
+                    const coordText = `座標 (${lat}, ${lng})`;
+                    if (type === 'pickup') {
+                        const pickupNameField = document.getElementById('pickup_location_name');
+                        const pickupLatField = document.getElementById('pickup_latitude');
+                        const pickupLngField = document.getElementById('pickup_longitude');
+                        
+                        pickupNameField.value = coordText;
+                        pickupLatField.value = lat;
+                        pickupLngField.value = lng;
+                        
+                        console.log('乗車場所フィールドを座標で更新:', {
+                            name: pickupNameField.value,
+                            lat: pickupLatField.value,
+                            lng: pickupLngField.value
+                        });
+                        
+                        pickupMarker.setPosition(position);
+                        document.getElementById('pickup-coordinates').style.display = 'block';
+                        showLocationPreview('pickup', coordText);
+                        
+                        // 乗車場所が設定されたら降車場所指定ボタンを表示
+                        document.getElementById('dropoff-section').style.display = 'block';
+                    } else if (type === 'dropoff') {
+                        const dropoffNameField = document.getElementById('dropoff_location_name');
+                        const dropoffLatField = document.getElementById('dropoff_latitude');
+                        const dropoffLngField = document.getElementById('dropoff_longitude');
+                        
+                        dropoffNameField.value = coordText;
+                        dropoffLatField.value = lat;
+                        dropoffLngField.value = lng;
+                        
+                        console.log('降車場所フィールドを座標で更新:', {
+                            name: dropoffNameField.value,
+                            lat: dropoffLatField.value,
+                            lng: dropoffLngField.value
+                        });
+                        
+                        dropoffMarker.setPosition(position);
+                        dropoffMarker.setVisible(true);
+                        document.getElementById('dropoff-coordinates').style.display = 'block';
+                        showLocationPreview('dropoff', coordText);
+                    }
+                }
+            });
+        }
+        
+        function getCurrentLocation(type) {
+            console.log('getCurrentLocation関数が呼び出されました。タイプ:', type);
+            
+            if (navigator.geolocation) {
+                console.log('位置情報の取得を開始します');
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        console.log('位置情報を取得しました:', position.coords);
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const location = { lat: lat, lng: lng };
+                        
+                        // 地図の中心を現在地に移動
+                        if (map) {
+                            map.setCenter(location);
+                            console.log('地図の中心を現在地に移動しました');
+                        }
+                    },
+                    function(error) {
+                        console.error('位置情報の取得に失敗しました:', error);
+                        alert('現在地を取得できませんでした: ' + error.message);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    }
+                );
+            } else {
+                console.error('ブラウザが位置情報をサポートしていません');
+                alert('お使いのブラウザは位置情報をサポートしていません。');
+            }
+        }
+        
+        function showLocationPreview(type, text) {
+            const preview = document.getElementById(type + '-preview');
+            const previewText = document.getElementById(type + '-preview-text');
+            previewText.textContent = text;
+            preview.style.display = 'block';
+        }
+        
+        // 住所入力時の自動補完
+        function setupAutocomplete() {
+            const pickupInput = document.getElementById('pickup_location_name');
+            const dropoffInput = document.getElementById('dropoff_location_name');
+            
+            if (pickupInput) {
+                const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput);
+                pickupAutocomplete.addListener('place_changed', function() {
+                    const place = pickupAutocomplete.getPlace();
+                    if (place.geometry) {
+                        const position = place.geometry.location;
+                        const pickupLatField = document.getElementById('pickup_latitude');
+                        const pickupLngField = document.getElementById('pickup_longitude');
+                        
+                        // 座標値を6桁の小数に丸める
+                        const lat = parseFloat(position.lat().toFixed(6));
+                        const lng = parseFloat(position.lng().toFixed(6));
+                        
+                        pickupLatField.value = lat;
+                        pickupLngField.value = lng;
+                        
+                        console.log('乗車場所自動補完でフィールドを更新:', {
+                            name: pickupInput.value,
+                            lat: pickupLatField.value,
+                            lng: pickupLngField.value
+                        });
+                        
+                        pickupMarker.setPosition(position);
+                        document.getElementById('pickup-coordinates').style.display = 'block';
+                        map.setCenter(position);
+                        showLocationPreview('pickup', place.formatted_address);
+                        
+                        // 乗車場所が設定されたら降車場所指定ボタンを表示
+                        document.getElementById('dropoff-section').style.display = 'block';
+                    }
+                });
+            }
+            
+            if (dropoffInput) {
+                const dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput);
+                dropoffAutocomplete.addListener('place_changed', function() {
+                    const place = dropoffAutocomplete.getPlace();
+                    if (place.geometry) {
+                        const position = place.geometry.location;
+                        const dropoffLatField = document.getElementById('dropoff_latitude');
+                        const dropoffLngField = document.getElementById('dropoff_longitude');
+                        
+                        // 座標値を6桁の小数に丸める
+                        const lat = parseFloat(position.lat().toFixed(6));
+                        const lng = parseFloat(position.lng().toFixed(6));
+                        
+                        dropoffLatField.value = lat;
+                        dropoffLngField.value = lng;
+                        
+                        console.log('降車場所自動補完でフィールドを更新:', {
+                            name: dropoffInput.value,
+                            lat: dropoffLatField.value,
+                            lng: dropoffLngField.value
+                        });
+                        
+                        dropoffMarker.setPosition(position);
+                        dropoffMarker.setVisible(true);
+                        document.getElementById('dropoff-coordinates').style.display = 'block';
+                        if (dropoffMap) {
+                            dropoffMap.setCenter(position);
+                        }
+                        showLocationPreview('dropoff', place.formatted_address);
+                    }
+                });
+            }
+        }
+        
+        // 地図初期化後に自動補完を設定
+        window.addEventListener('load', function() {
+            if (typeof google !== 'undefined' && google.maps) {
+                setupAutocomplete();
+            }
+        });
+        
+        // フォーム送信前のデバッグ
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    console.log('フォーム送信前のフィールド値確認:');
+                    console.log('乗車場所名:', document.getElementById('pickup_location_name').value);
+                    console.log('乗車場所緯度:', document.getElementById('pickup_latitude').value);
+                    console.log('乗車場所経度:', document.getElementById('pickup_longitude').value);
+                    console.log('降車場所名:', document.getElementById('dropoff_location_name').value);
+                    console.log('降車場所緯度:', document.getElementById('dropoff_latitude').value);
+                    console.log('降車場所経度:', document.getElementById('dropoff_longitude').value);
+                });
+            }
+        });
+        
+        // 降車場所地図を表示する関数
+        function showDropoffMap() {
+            document.getElementById('dropoff-map-container').style.display = 'block';
+            
+            if (!dropoffMapInitialized) {
+                initDropoffMap();
+            }
+        }
+        
+        // 降車場所地図の初期化
+        function initDropoffMap() {
+            console.log('降車場所地図を初期化します');
+            
+            const dropoffMapElement = document.getElementById('dropoff-map');
+            if (!dropoffMapElement) {
+                console.error('降車場所地図要素が見つかりません');
+                return;
+            }
+            
+            try {
+                // 乗車場所の位置を取得して初期位置にする
+                const pickupLat = parseFloat(document.getElementById('pickup_latitude').value) || 33.5833;
+                const pickupLng = parseFloat(document.getElementById('pickup_longitude').value) || 130.3167;
+                const initialLocation = { lat: pickupLat, lng: pickupLng };
+                
+                dropoffMap = new google.maps.Map(dropoffMapElement, {
+                    zoom: 13,
+                    center: initialLocation,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    fullscreenControl: true,
+                    gestureHandling: 'cooperative',
+                    disableDefaultUI: false,
+                });
+                
+                // 降車場所マーカーを作成
+                dropoffMarker = new google.maps.Marker({
+                    map: dropoffMap,
+                    position: initialLocation,
+                    title: '降車場所',
+                    draggable: true,
+                    icon: {
+                        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                    }
+                });
+                
+                // 降車場所マーカーのドラッグ終了イベント
+                dropoffMarker.addListener('dragend', function(event) {
+                    const position = event.latLng;
+                    updateLocationFromPosition('dropoff', position);
+                });
+                
+                // 降車場所地図クリックでマーカーを配置
+                dropoffMap.addListener('click', function(event) {
+                    const position = event.latLng;
+                    updateLocationFromPosition('dropoff', position);
+                });
+                
+                dropoffMapInitialized = true;
+                console.log('降車場所地図が正常に初期化されました');
+                
+            } catch (error) {
+                console.error('降車場所地図の初期化中にエラーが発生しました:', error);
+            }
+        }
+        
+        // 降車場所用の現在地移動関数
+        function getCurrentLocationDropoff() {
+            console.log('降車場所地図を現在地に移動します');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const location = { lat: lat, lng: lng };
+                        
+                        if (dropoffMap) {
+                            dropoffMap.setCenter(location);
+                            console.log('降車場所地図の中心を現在地に移動しました');
+                        }
+                    },
+                    function(error) {
+                        console.error('位置情報の取得に失敗しました:', error);
+                        alert('現在地を取得できませんでした: ' + error.message);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    }
+                );
+            } else {
+                alert('お使いのブラウザは位置情報をサポートしていません。');
+            }
+        }
+    </script>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places,geometry&callback=initMap" async defer></script>
+{% else %}
+    <script>
+        // Google Maps APIキーが設定されていない場合の代替機能
+        function initMap() {
+            console.log('Google Maps APIキーが設定されていません。地図機能は無効です。');
+        }
+        
+        function getCurrentLocation(type) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        if (type === 'pickup') {
+                            document.getElementById('pickup_location_name').value = `現在地 (${lat.toFixed(6)}, ${lng.toFixed(6)})`;
+                            document.getElementById('pickup_latitude').value = lat;
+                            document.getElementById('pickup_longitude').value = lng;
+                            document.getElementById('pickup-coordinates').style.display = 'block';
+                            showLocationPreview('pickup', `現在地 (${lat.toFixed(6)}, ${lng.toFixed(6)})`);
+                        } else if (type === 'dropoff') {
+                            document.getElementById('dropoff_location_name').value = `現在地 (${lat.toFixed(6)}, ${lng.toFixed(6)})`;
+                            document.getElementById('dropoff_latitude').value = lat;
+                            document.getElementById('dropoff_longitude').value = lng;
+                            document.getElementById('dropoff-coordinates').style.display = 'block';
+                            showLocationPreview('dropoff', `現在地 (${lat.toFixed(6)}, ${lng.toFixed(6)})`);
+                        }
+                    },
+                    function(error) {
+                        alert('現在地を取得できませんでした: ' + error.message);
+                    }
+                );
+            } else {
+                alert('お使いのブラウザは位置情報をサポートしていません。');
+            }
+        }
+        
+        function showLocationPreview(type, text) {
+            const preview = document.getElementById(type + '-preview');
+            const previewText = document.getElementById(type + '-preview-text');
+            previewText.textContent = text;
+            preview.style.display = 'block';
+        }
+    </script>
+{% endif %}
+{% endblock %} 
