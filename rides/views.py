@@ -20,7 +20,7 @@ def signup_view(request):
             user = form.save()
             # 自動ログインを削除
             messages.success(request, 'アカウントが正常に作成されました！ログインしてください。')
-            return redirect('login')
+            return redirect('rides:login')
         else:
             messages.error(request, '登録に失敗しました。入力内容を確認してください。')
     else:
