@@ -3,9 +3,9 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import RidePlan, Participation
+from .models import RidePlan, Participation, Group, GroupMembership
 from django.db import models
-from .forms import RidePlanForm, ParticipationForm
+from .forms import RidePlanForm, ParticipationForm, GroupCreateForm, GroupJoinForm
 from django.http import Http404, JsonResponse
 from django.conf import settings
 from django.utils import timezone
@@ -61,12 +61,16 @@ def profile_view(request):
         status__in=['completed', 'cancelled']
     ).order_by('-departure_time')
     
+    # 参加しているグループ一覧
+    user_groups = Group.objects.filter(groupmembership__user=request.user).order_by('-created_at')
+    
     context = {
         'created_rides': created_rides,
         'participating_rides': participating_rides,
         'participating_participations': participating_participations,
         'past_rides': past_rides,
         'past_participations': past_participations,
+        'user_groups': user_groups,
     }
     
     return render(request, 'rides/profile.html', context)
@@ -74,10 +78,27 @@ def profile_view(request):
 @login_required
 def home_view(request):
     """ホーム画面（配車計画一覧 + 予約したものも当日中は表示）"""
-    # 募集中の配車計画を取得（最新順）
-    rides = RidePlan.objects.filter(
-        status='active'
-    ).select_related('creator').order_by('-created_at')
+    # ユーザーが参加しているグループを取得
+    user_groups = Group.objects.filter(groupmembership__user=request.user)
+    
+    # 選択されたグループを取得（デフォルトは最初のグループ）
+    selected_group_id = request.GET.get('group')
+    if selected_group_id:
+        selected_group = get_object_or_404(Group, id=selected_group_id, groupmembership__user=request.user)
+    elif user_groups.exists():
+        selected_group = user_groups.first()
+    else:
+        selected_group = None
+    
+    # グループが選択されている場合、そのグループの配車計画のみ表示
+    if selected_group:
+        rides = RidePlan.objects.filter(
+            status='active',
+            groups=selected_group
+        ).select_related('creator').order_by('-created_at')
+    else:
+        # グループに参加していない場合は空のクエリセット
+        rides = RidePlan.objects.none()
     
     # 締切時間が過ぎたものを除外（より緩やかな条件に変更）
     current_time = timezone.now()
@@ -141,6 +162,8 @@ def home_view(request):
     
     context = {
         'rides': rides,
+        'user_groups': user_groups,
+        'selected_group': selected_group,
         'search_query': search_query,
         'departure_filter': departure_filter,
         'destination_filter': destination_filter,
@@ -154,11 +177,27 @@ def home_view(request):
 @login_required
 def index_view(request):
     """配車計画一覧画面"""
-    # 募集中の配車計画を取得（最新順）
-    # 締切時間が過ぎていないもののみ表示
-    rides = RidePlan.objects.filter(
-        status='active'
-    ).select_related('creator').order_by('-created_at')
+    # ユーザーが参加しているグループを取得
+    user_groups = Group.objects.filter(groupmembership__user=request.user)
+    
+    # 選択されたグループを取得（デフォルトは最初のグループ）
+    selected_group_id = request.GET.get('group')
+    if selected_group_id:
+        selected_group = get_object_or_404(Group, id=selected_group_id, groupmembership__user=request.user)
+    elif user_groups.exists():
+        selected_group = user_groups.first()
+    else:
+        selected_group = None
+    
+    # グループが選択されている場合、そのグループの配車計画のみ表示
+    if selected_group:
+        rides = RidePlan.objects.filter(
+            status='active',
+            groups=selected_group
+        ).select_related('creator').order_by('-created_at')
+    else:
+        # グループに参加していない場合は空のクエリセット
+        rides = RidePlan.objects.none()
     
     # 締切時間が過ぎたものを除外（より緩やかな条件に変更）
     current_time = timezone.now()
@@ -203,6 +242,8 @@ def index_view(request):
     
     context = {
         'rides': rides,
+        'user_groups': user_groups,
+        'selected_group': selected_group,
         'search_query': search_query,
         'departure_filter': departure_filter,
         'destination_filter': destination_filter,
@@ -243,22 +284,35 @@ def ride_detail_view(request, ride_id):
 @login_required
 def create_ride_view(request):
     """配車計画作成画面"""
+    # ユーザーが参加しているグループを取得
+    user_groups = Group.objects.filter(groupmembership__user=request.user)
+    
     if request.method == 'POST':
         form = RidePlanForm(request.POST)
+        # フォームのグループ選択肢をユーザーのグループに制限
+        form.fields['selected_groups'].queryset = user_groups
+        
         if form.is_valid():
             ride_plan = form.save(commit=False)
             ride_plan.creator = request.user
             ride_plan.save()
             
+            # 選択されたグループを関連付け
+            selected_groups = form.cleaned_data['selected_groups']
+            ride_plan.groups.set(selected_groups)
+            
             messages.success(request, '配車計画を作成しました！')
-            return redirect('rides:index')
+            return redirect('rides:home')
         else:
             messages.error(request, '入力内容にエラーがあります。修正してください。')
     else:
         form = RidePlanForm()
+        # フォームのグループ選択肢をユーザーのグループに制限
+        form.fields['selected_groups'].queryset = user_groups
     
     context = {
         'form': form,
+        'user_groups': user_groups,
         'title': '配車計画作成'
     }
     
@@ -268,6 +322,7 @@ def create_ride_view(request):
 def edit_ride_view(request, ride_id):
     """配車計画編集画面"""
     ride = get_object_or_404(RidePlan, id=ride_id)
+    user_groups = Group.objects.filter(groupmembership__user=request.user)
     
     # 作成者以外は編集不可
     if ride.creator != request.user:
@@ -281,19 +336,26 @@ def edit_ride_view(request, ride_id):
     
     if request.method == 'POST':
         form = RidePlanForm(request.POST, instance=ride)
+        form.fields['selected_groups'].queryset = user_groups
         if form.is_valid():
-            form.save()
+            ride_plan = form.save()
+            # 選択されたグループを関連付け
+            selected_groups = form.cleaned_data['selected_groups']
+            ride_plan.groups.set(selected_groups)
             messages.success(request, '配車計画を更新しました！')
-            return redirect('rides:ride_detail', ride_id=ride_id)
+            return redirect('rides:home')
         else:
             messages.error(request, '入力内容にエラーがあります。修正してください。')
     else:
         form = RidePlanForm(instance=ride)
+        form.fields['selected_groups'].queryset = user_groups
+        form.initial['selected_groups'] = ride.groups.all()
     
     context = {
         'form': form,
         'ride': ride,
-        'title': '配車計画編集'
+        'title': '配車計画編集',
+        'user_groups': user_groups,
     }
     
     return render(request, 'rides/edit_ride.html', context)
@@ -316,7 +378,7 @@ def delete_ride_view(request, ride_id):
         
         ride.delete()
         messages.success(request, '配車計画を削除しました。')
-        return redirect('rides:index')
+        return redirect('rides:home')
     
     context = {
         'ride': ride,
@@ -577,3 +639,64 @@ def driver_mode_list_view(request):
     }
     
     return render(request, 'rides/driver_mode_list.html', context)
+
+@login_required
+def create_group_view(request):
+    """グループ作成画面"""
+    if request.method == 'POST':
+        form = GroupCreateForm(request.POST)
+        if form.is_valid():
+            group = form.save(commit=False)
+            group.creator = request.user
+            group.name = Group.generate_name()
+            group.password = Group.generate_password()
+            group.save()
+            
+            # 作成者を自動的にメンバーに追加
+            GroupMembership.objects.create(user=request.user, group=group)
+            
+            messages.success(request, f'グループ「{group.display_name}」を作成しました！')
+            messages.info(request, f'グループ名: {group.name} / パスワード: {group.password}')
+            return redirect('rides:profile')
+        else:
+            messages.error(request, '入力内容にエラーがあります。修正してください。')
+    else:
+        form = GroupCreateForm()
+    
+    context = {
+        'form': form,
+        'title': 'グループ作成'
+    }
+    
+    return render(request, 'rides/create_group.html', context)
+
+@login_required
+def join_group_view(request):
+    """グループ参加画面"""
+    if request.method == 'POST':
+        form = GroupJoinForm(request.POST)
+        if form.is_valid():
+            group_name = form.cleaned_data['group_name']
+            group = Group.objects.get(name=group_name)
+            
+            # 既にメンバーかチェック
+            if GroupMembership.objects.filter(user=request.user, group=group).exists():
+                messages.warning(request, '既にこのグループのメンバーです。')
+                return redirect('rides:profile')
+            
+            # メンバーシップを作成
+            GroupMembership.objects.create(user=request.user, group=group)
+            
+            messages.success(request, f'グループ「{group.display_name}」に参加しました！')
+            return redirect('rides:profile')
+        else:
+            messages.error(request, '入力内容にエラーがあります。修正してください。')
+    else:
+        form = GroupJoinForm()
+    
+    context = {
+        'form': form,
+        'title': 'グループ参加'
+    }
+    
+    return render(request, 'rides/join_group.html', context)

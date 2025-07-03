@@ -15,6 +15,60 @@
                 </a>
             </div>
             <div class="card-body">
+                <!-- グループ選択 -->
+                {% if user_groups %}
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-people"></i> グループ選択
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="get" class="row align-items-end">
+                            <div class="col-md-6">
+                                <label for="group" class="form-label">表示するグループ</label>
+                                <select class="form-select" id="group" name="group" onchange="this.form.submit()">
+                                    {% for group in user_groups %}
+                                        <option value="{{ group.id }}" {% if selected_group.id == group.id %}selected{% endif %}>
+                                            {{ group.display_name }} ({{ group.name }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-0 text-muted">
+                                    {% if selected_group %}
+                                        現在表示中: <strong>{{ selected_group.display_name }}</strong>
+                                    {% else %}
+                                        グループを選択してください
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <!-- グループ未参加の場合 -->
+                <div class="card mb-4 border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> グループに参加していません
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">配車計画を表示するには、グループに参加するか、新しいグループを作成してください。</p>
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'rides:join_group' %}" class="btn btn-success">
+                                <i class="bi bi-person-plus"></i> グループに参加
+                            </a>
+                            <a href="{% url 'rides:create_group' %}" class="btn btn-primary">
+                                <i class="bi bi-people"></i> グループを作成
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
                 <!-- 検索・フィルター機能 -->
                 <div class="card mb-4">
                     <div class="card-header">

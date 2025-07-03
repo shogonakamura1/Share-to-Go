@@ -51,4 +51,10 @@ urlpatterns = [
     
     # プロフィール画面
     path('profile/', views.profile_view, name='profile'),
+    
+    # グループ作成画面
+    path('groups/create/', views.create_group_view, name='create_group'),
+    
+    # グループ参加画面
+    path('groups/join/', views.join_group_view, name='join_group'),
 ] 

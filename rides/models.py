@@ -1,8 +1,55 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+import random
+import string
 
 # Create your models here.
+
+class Group(models.Model):
+    """グループモデル"""
+    name = models.CharField(max_length=10, unique=True, verbose_name="グループ名（英数字）")
+    display_name = models.CharField(max_length=50, verbose_name="表示名（日本語）")
+    password = models.CharField(max_length=4, verbose_name="パスワード")
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="作成者")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
+    
+    class Meta:
+        verbose_name = "グループ"
+        verbose_name_plural = "グループ"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.display_name} ({self.name})"
+    
+    @classmethod
+    def generate_name(cls):
+        """英数字10文字のグループ名を生成"""
+        while True:
+            name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+            if not cls.objects.filter(name=name).exists():
+                return name
+    
+    @classmethod
+    def generate_password(cls):
+        """数字4桁のパスワードを生成"""
+        return ''.join(random.choices(string.digits, k=4))
+
+
+class GroupMembership(models.Model):
+    """グループメンバーシップモデル"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="ユーザー")
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, verbose_name="グループ")
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name="参加日時")
+    
+    class Meta:
+        verbose_name = "グループメンバーシップ"
+        verbose_name_plural = "グループメンバーシップ"
+        unique_together = ['user', 'group']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.group.display_name}"
+
 
 class RidePlan(models.Model):
     """配車計画モデル"""
@@ -14,6 +61,7 @@ class RidePlan(models.Model):
     ]
     
     creator = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="作成者")
+    groups = models.ManyToManyField(Group, verbose_name="表示グループ", blank=True)
     title = models.CharField(max_length=100, verbose_name="タイトル")
     description = models.TextField(blank=True, null=True, verbose_name="説明")
     departure_location = models.CharField(max_length=100, verbose_name="出発地")

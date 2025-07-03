@@ -14,10 +14,105 @@
             </div>
             <div class="card-body">
                 <p class="mb-0">あなたの配車計画と参加履歴を管理できます。</p>
+                
+                <!-- グループ関連ボタン -->
+                <div class="mt-3">
+                    <a href="{% url 'rides:join_group' %}" class="btn btn-success btn-sm me-2">
+                        <i class="bi bi-person-plus"></i> グループに参加
+                    </a>
+                    <a href="{% url 'rides:create_group' %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-people"></i> グループを作成
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- 参加しているグループ -->
+{% if user_groups %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-people"></i> 参加しているグループ
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for group in user_groups %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 border-warning">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ group.display_name }}</h6>
+                                    <p class="card-text small">
+                                        <i class="bi bi-tag"></i> <strong>グループ名:</strong> {{ group.name }}<br>
+                                        <i class="bi bi-key"></i> <strong>パスワード:</strong> {{ group.password }}<br>
+                                        <i class="bi bi-person"></i> <strong>作成者:</strong> {{ group.creator.username }}<br>
+                                        <i class="bi bi-calendar"></i> <strong>作成日:</strong> {{ group.created_at|date:"m/d" }}
+                                    </p>
+                                    
+                                    <!-- 共有ボタン -->
+                                    <div class="d-grid gap-2">
+                                        <button type="button" class="btn btn-outline-warning btn-sm" 
+                                                onclick="shareGroupInfo('{{ group.name }}', '{{ group.password }}', '{{ group.display_name }}')">
+                                            <i class="bi bi-share"></i> 共有情報を表示
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- 共有情報（初期状態では非表示） -->
+                                    <div id="share-info-{{ group.id }}" class="mt-3" style="display: none;">
+                                        <div class="alert alert-info py-2">
+                                            <small>
+                                                <strong>グループ参加情報</strong><br>
+                                                グループ名: <code>{{ group.name }}</code><br>
+                                                パスワード: <code>{{ group.password }}</code><br>
+                                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" 
+                                                        onclick="copyGroupInfo('{{ group.name }}', '{{ group.password }}', this)">
+                                                    <i class="bi bi-clipboard"></i> コピー
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 ms-1" 
+                                                        onclick="selectGroupInfo('{{ group.name }}', '{{ group.password }}')">
+                                                    <i class="bi bi-cursor-text"></i> 選択
+                                                </button>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- グループ未参加の場合 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle"></i> グループに参加していません
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">配車計画を表示するには、グループに参加するか、新しいグループを作成してください。</p>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'rides:join_group' %}" class="btn btn-success">
+                        <i class="bi bi-person-plus"></i> グループに参加
+                    </a>
+                    <a href="{% url 'rides:create_group' %}" class="btn btn-primary">
+                        <i class="bi bi-people"></i> グループを作成
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- 現在参加している配車計画 -->
 <div class="row mb-4">
@@ -191,4 +286,122 @@
         </div>
     </div>
 </div>
+
+<!-- JavaScript for sharing functionality -->
+<script>
+function shareGroupInfo(groupName, password, displayName) {
+    // すべての共有情報を非表示にする
+    const allShareInfos = document.querySelectorAll('[id^="share-info-"]');
+    allShareInfos.forEach(info => {
+        info.style.display = 'none';
+    });
+    
+    // 該当するグループの共有情報を表示/非表示を切り替える
+    // グループ名からグループIDを特定する
+    const groupCards = document.querySelectorAll('.card-body');
+    let targetShareInfo = null;
+    
+    groupCards.forEach(card => {
+        const groupNameElement = card.querySelector('.card-text');
+        if (groupNameElement && groupNameElement.textContent.includes(groupName)) {
+            const shareInfo = card.querySelector('[id^="share-info-"]');
+            if (shareInfo) {
+                targetShareInfo = shareInfo;
+            }
+        }
+    });
+    
+    if (targetShareInfo) {
+        if (targetShareInfo.style.display === 'none') {
+            targetShareInfo.style.display = 'block';
+        } else {
+            targetShareInfo.style.display = 'none';
+        }
+    }
+}
+
+function copyToClipboard(text) {
+    // フォールバック用のテキストエリアを作成
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        // モダンブラウザでのコピー
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function() {
+                showCopySuccess(event.target);
+            }).catch(function(err) {
+                console.error('コピーに失敗しました: ', err);
+                // フォールバック
+                document.execCommand('copy');
+                showCopySuccess(event.target);
+            });
+        } else {
+            // 古いブラウザでのフォールバック
+            document.execCommand('copy');
+            showCopySuccess(event.target);
+        }
+    } catch (err) {
+        console.error('コピーに失敗しました: ', err);
+        alert('コピーに失敗しました。手動でコピーしてください。');
+    }
+    
+    // テキストエリアを削除
+    document.body.removeChild(textArea);
+}
+
+function showCopySuccess(button) {
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="bi bi-check"></i> コピー完了';
+    button.classList.remove('btn-outline-primary');
+    button.classList.add('btn-success');
+    
+    setTimeout(function() {
+        button.innerHTML = originalText;
+        button.classList.remove('btn-success');
+        button.classList.add('btn-outline-primary');
+    }, 2000);
+}
+
+function copyGroupInfo(groupName, password, button) {
+    const text = `グループ名: ${groupName}\nパスワード: ${password}`;
+    copyToClipboard(text);
+}
+
+function selectGroupInfo(groupName, password) {
+    const text = `グループ名: ${groupName}\nパスワード: ${password}`;
+    
+    // 一時的なテキストエリアを作成して選択
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '50%';
+    textArea.style.top = '50%';
+    textArea.style.transform = 'translate(-50%, -50%)';
+    textArea.style.zIndex = '9999';
+    textArea.style.width = '300px';
+    textArea.style.height = '100px';
+    textArea.style.border = '2px solid #007bff';
+    textArea.style.borderRadius = '5px';
+    textArea.style.padding = '10px';
+    textArea.style.fontSize = '14px';
+    textArea.style.backgroundColor = 'white';
+    textArea.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    // 3秒後に自動削除
+    setTimeout(function() {
+        document.body.removeChild(textArea);
+    }, 3000);
+}
+</script>
 {% endblock %} 

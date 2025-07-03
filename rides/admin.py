@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import RidePlan, Participation
+from .models import RidePlan, Participation, Group, GroupMembership
 
 # Register your models here.
 
@@ -50,3 +50,31 @@ class ParticipationAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         })
     )
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    list_display = ['display_name', 'name', 'creator', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['display_name', 'name', 'creator__username']
+    readonly_fields = ['name', 'password', 'created_at']
+    
+    fieldsets = (
+        ('基本情報', {
+            'fields': ('display_name', 'creator')
+        }),
+        ('自動生成情報', {
+            'fields': ('name', 'password'),
+            'classes': ('collapse',)
+        }),
+        ('日時', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        })
+    )
+
+@admin.register(GroupMembership)
+class GroupMembershipAdmin(admin.ModelAdmin):
+    list_display = ['user', 'group', 'joined_at']
+    list_filter = ['joined_at', 'group']
+    search_fields = ['user__username', 'group__display_name']
+    readonly_fields = ['joined_at']

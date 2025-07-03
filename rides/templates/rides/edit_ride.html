@@ -182,6 +182,42 @@
                                 <div class="form-text">{{ form.description.help_text }}</div>
                             {% endif %}
                         </div>
+                        
+                        <!-- グループ選択 -->
+                        {% if user_groups %}
+                        <div class="col-12 mb-4">
+                            <label class="form-label">
+                                表示グループ <span class="text-danger">*</span>
+                            </label>
+                            {{ form.selected_groups }}
+                            {% if form.selected_groups.help_text %}
+                                <div class="form-text">{{ form.selected_groups.help_text }}</div>
+                            {% endif %}
+                            {% if form.selected_groups.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.selected_groups.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="col-12 mb-4">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>グループに参加していません</strong><br>
+                                配車計画を編集するには、まずグループに参加するか、新しいグループを作成してください。
+                                <div class="mt-2">
+                                    <a href="{% url 'rides:join_group' %}" class="btn btn-success btn-sm">
+                                        <i class="bi bi-person-plus"></i> グループに参加
+                                    </a>
+                                    <a href="{% url 'rides:create_group' %}" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-people"></i> グループを作成
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     
                     <!-- ボタン群 -->

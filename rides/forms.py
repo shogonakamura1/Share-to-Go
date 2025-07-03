@@ -1,9 +1,18 @@
 from django import forms
-from .models import RidePlan, Participation
+from .models import RidePlan, Participation, Group, GroupMembership
 from django.utils import timezone
 
 class RidePlanForm(forms.ModelForm):
     """配車計画作成・編集フォーム"""
+    
+    # グループ選択フィールド（フォームでのみ使用）
+    selected_groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="表示グループ",
+        help_text="配車計画を表示するグループを選択してください（複数選択可能）"
+    )
     
     class Meta:
         model = RidePlan
@@ -180,5 +189,67 @@ class ParticipationForm(forms.ModelForm):
             raise forms.ValidationError('乗車場所の座標が不完全です。')
         if pickup_longitude and not pickup_latitude:
             raise forms.ValidationError('乗車場所の座標が不完全です。')
+        
+        return cleaned_data 
+
+class GroupCreateForm(forms.ModelForm):
+    """グループ作成フォーム"""
+    
+    class Meta:
+        model = Group
+        fields = ['display_name']
+        widgets = {
+            'display_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '例：東京大学サークルA'
+            })
+        }
+        labels = {
+            'display_name': 'グループ名（日本語）'
+        }
+        help_texts = {
+            'display_name': 'グループの表示名を入力してください（50文字以内）'
+        }
+
+
+class GroupJoinForm(forms.Form):
+    """グループ参加フォーム"""
+    group_name = forms.CharField(
+        max_length=10,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '例：ABC123DEF4'
+        }),
+        label='グループ名（英数字10文字）',
+        help_text='参加したいグループの英数字名を入力してください'
+    )
+    password = forms.CharField(
+        max_length=4,
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': '例：1234'
+        }),
+        label='パスワード（数字4桁）',
+        help_text='グループのパスワードを入力してください'
+    )
+    
+    def clean_group_name(self):
+        group_name = self.cleaned_data.get('group_name')
+        if not Group.objects.filter(name=group_name).exists():
+            raise forms.ValidationError('指定されたグループ名が見つかりません。')
+        return group_name
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        group_name = cleaned_data.get('group_name')
+        password = cleaned_data.get('password')
+        
+        if group_name and password:
+            try:
+                group = Group.objects.get(name=group_name)
+                if group.password != password:
+                    raise forms.ValidationError('パスワードが正しくありません。')
+            except Group.DoesNotExist:
+                pass
         
         return cleaned_data 
