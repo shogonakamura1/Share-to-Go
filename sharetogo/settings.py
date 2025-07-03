@@ -29,6 +29,15 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
+# 開発環境でのCSRF設定
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+        'https://share-to-go-app-395e2f67d71b.herokuapp.com',
+        'https://*.herokuapp.com',
+    ]
+
 
 # Application definition
 
@@ -52,6 +61,11 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# CSRFミドルウェアの設定
+CSRF_USE_SESSIONS = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 ROOT_URLCONF = "sharetogo.urls"
 
@@ -150,3 +164,20 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+# CSRF設定（本番環境用）
+if not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://share-to-go-app-395e2f67d71b.herokuapp.com',
+        'https://*.herokuapp.com',
+    ]
+
+# セッション設定
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+# セッション有効期限（30分）
+SESSION_COOKIE_AGE = 1800
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
