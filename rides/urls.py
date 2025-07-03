@@ -37,6 +37,9 @@ urlpatterns = [
     # 遅延情報更新API
     path('rides/<int:ride_id>/update-delay/', views.update_delay_view, name='update_delay'),
     
+    # 遅延可能性更新API
+    path('rides/<int:ride_id>/update-delay-possibility/', views.update_delay_possibility_view, name='update_delay_possibility'),
+    
     # 履歴画面
     path('history/', views.history_view, name='history'),
     

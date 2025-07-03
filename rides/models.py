@@ -80,6 +80,9 @@ class RidePlan(models.Model):
     delay_minutes = models.PositiveIntegerField(default=0, verbose_name="遅延時間（分）")
     is_delayed = models.BooleanField(default=False, verbose_name="遅延中")
     delay_updated_at = models.DateTimeField(auto_now=True, verbose_name="遅延情報更新日時")
+    # 遅延可能性フィールド
+    delay_possibility = models.BooleanField(default=False, verbose_name="遅延の可能性あり")
+    delay_possibility_updated_at = models.DateTimeField(auto_now=True, verbose_name="遅延可能性更新日時")
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
@@ -138,6 +141,11 @@ class RidePlan(models.Model):
         """遅延情報を更新"""
         self.delay_minutes = delay_minutes
         self.is_delayed = delay_minutes > 0
+        self.save()
+    
+    def update_delay_possibility(self, possibility):
+        """遅延可能性を更新"""
+        self.delay_possibility = possibility
         self.save()
 
 

@@ -614,6 +614,35 @@ def update_delay_view(request, ride_id):
         return JsonResponse({'error': f'更新に失敗しました: {str(e)}'}, status=500)
 
 @login_required
+def update_delay_possibility_view(request, ride_id):
+    """遅延可能性更新API"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POSTメソッドのみ対応'}, status=405)
+    
+    ride = get_object_or_404(RidePlan, id=ride_id)
+    
+    # 作成者以外は更新不可
+    if ride.creator != request.user:
+        return JsonResponse({'error': '権限がありません'}, status=403)
+    
+    # 運行中でない場合は更新不可
+    if not ride.is_in_progress:
+        return JsonResponse({'error': '運行中でない配車計画では遅延可能性を更新できません'}, status=400)
+    
+    try:
+        possibility = request.POST.get('possibility') == 'true'
+        ride.update_delay_possibility(possibility)
+        
+        return JsonResponse({
+            'success': True,
+            'delay_possibility': ride.delay_possibility,
+            'message': f'遅延可能性を更新しました（{"可能性あり" if possibility else "可能性なし"}）'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': f'更新に失敗しました: {str(e)}'}, status=500)
+
+@login_required
 def driver_mode_list_view(request):
     """運転者モード一覧画面"""
     # ユーザーが作成した配車計画で運行中のものを取得
