@@ -1,82 +1,83 @@
 {% extends 'rides/base.html' %}
 
-{% block title %}プロフィール - {{ user.username }} - Share-to-Go{% endblock %}
+{% block title %}マイページ - Share-to-Go{% endblock %}
 
 {% block content %}
-<div class="row">
+<!-- ヘッダー -->
+<div class="row mb-4">
     <div class="col-12">
-        <!-- ユーザー情報 -->
-        <div class="card shadow mb-4">
+        <div class="card shadow">
             <div class="card-header bg-primary text-white">
                 <h4 class="mb-0">
-                    <i class="bi bi-person-circle"></i> {{ user.username }} のプロフィール
+                    <i class="bi bi-person-circle"></i> マイページ - {{ user.username }}さん
                 </h4>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-person"></i> ユーザー名</h6>
-                        <p class="text-muted">{{ user.username }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-envelope"></i> メールアドレス</h6>
-                        <p class="text-muted">{{ user.email }}</p>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-calendar"></i> 登録日</h6>
-                        <p class="text-muted">{{ user.date_joined|date:"Y年m月d日" }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-clock"></i> 最終ログイン</h6>
-                        <p class="text-muted">{{ user.last_login|date:"Y年m月d日 H:i" }}</p>
-                    </div>
-                </div>
+                <p class="mb-0">あなたの配車計画と参加履歴を管理できます。</p>
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- 統計情報 -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h4 class="text-primary">{{ created_rides.count }}</h4>
-                        <small class="text-muted">作成した配車計画</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h4 class="text-success">{{ participating_rides.count }}</h4>
-                        <small class="text-muted">参加予定</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h4 class="text-info">{{ past_rides.count }}</h4>
-                        <small class="text-muted">過去の配車計画</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body">
-                        <h4 class="text-warning">{{ past_participations.count }}</h4>
-                        <small class="text-muted">過去の参加</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 作成した配車計画 -->
-        <div class="card shadow mb-4">
-            <div class="card-header bg-light">
+<!-- 現在参加している配車計画 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
                 <h5 class="mb-0">
-                    <i class="bi bi-plus-circle"></i> 作成した配車計画
+                    <i class="bi bi-calendar-check"></i> 現在参加している配車計画
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if participating_participations %}
+                    <div class="row">
+                        {% for participation in participating_participations %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ participation.ride_plan.title }}</h6>
+                                        <p class="card-text small">
+                                            <i class="bi bi-geo-alt"></i> {{ participation.ride_plan.departure_location }} → {{ participation.ride_plan.destination }}<br>
+                                            <i class="bi bi-calendar"></i> {{ participation.ride_plan.departure_time|date:"m/d H:i" }}<br>
+                                            <i class="bi bi-person"></i> {{ participation.ride_plan.creator.username }}<br>
+                                            {% if participation.pickup_location_name %}
+                                                <i class="bi bi-geo-alt text-success"></i> <strong>乗車:</strong> {{ participation.pickup_location_name }}<br>
+                                            {% endif %}
+                                            {% if participation.dropoff_location_name %}
+                                                <i class="bi bi-geo-alt-fill text-danger"></i> <strong>降車:</strong> {{ participation.dropoff_location_name }}<br>
+                                            {% endif %}
+                                            <span class="badge bg-success">{{ participation.get_status_display }}</span>
+                                        </p>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'rides:ride_detail' participation.ride_plan.id %}" class="btn btn-outline-primary">
+                                                <i class="bi bi-eye"></i> 詳細
+                                            </a>
+                                            <a href="{% url 'rides:cancel_reservation' participation.ride_plan.id %}" 
+                                               class="btn btn-outline-danger"
+                                               onclick="return confirm('参加をキャンセルしますか？')">
+                                                <i class="bi bi-x-circle"></i> キャンセル
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">現在参加している配車計画はありません。</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 過去に作成した配車計画 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-car-front"></i> 過去に作成した配車計画
                 </h5>
             </div>
             <div class="card-body">
@@ -85,30 +86,17 @@
                         {% for ride in created_rides %}
                             <div class="col-md-6 col-lg-4 mb-3">
                                 <div class="card h-100">
-                                    <div class="card-header bg-light">
-                                        <h6 class="card-title mb-0">
-                                            <a href="{% url 'rides:ride_detail' ride.id %}" class="text-decoration-none">
-                                                {{ ride.title }}
-                                            </a>
-                                        </h6>
-                                    </div>
                                     <div class="card-body">
+                                        <h6 class="card-title">{{ ride.title }}</h6>
                                         <p class="card-text small">
                                             <i class="bi bi-geo-alt"></i> {{ ride.departure_location }} → {{ ride.destination }}<br>
                                             <i class="bi bi-calendar"></i> {{ ride.departure_time|date:"m/d H:i" }}<br>
                                             <i class="bi bi-people"></i> {{ ride.current_participants }}/{{ ride.max_participants }}人<br>
-                                            <span class="badge 
-                                                {% if ride.status == 'active' %}bg-success
-                                                {% elif ride.status == 'full' %}bg-warning
-                                                {% elif ride.status == 'cancelled' %}bg-danger
-                                                {% elif ride.status == 'completed' %}bg-info
-                                                {% endif %}">
+                                            <span class="badge bg-{% if ride.status == 'active' %}success{% elif ride.status == 'completed' %}primary{% elif ride.status == 'cancelled' %}danger{% else %}secondary{% endif %}">
                                                 {{ ride.get_status_display }}
                                             </span>
                                         </p>
-                                    </div>
-                                    <div class="card-footer">
-                                        <div class="btn-group btn-group-sm w-100" role="group">
+                                        <div class="btn-group btn-group-sm" role="group">
                                             <a href="{% url 'rides:ride_detail' ride.id %}" class="btn btn-outline-primary">
                                                 <i class="bi bi-eye"></i> 詳細
                                             </a>
@@ -124,170 +112,82 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-muted text-center py-3">
-                        <i class="bi bi-plus-circle"></i> まだ配車計画を作成していません
-                    </p>
-                    <div class="text-center">
-                        <a href="{% url 'rides:create_ride' %}" class="btn btn-primary">
-                            <i class="bi bi-plus-circle"></i> 配車計画を作成
-                        </a>
-                    </div>
+                    <p class="text-muted text-center">作成した配車計画はありません。</p>
                 {% endif %}
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- 参加予定の配車計画 -->
-        <div class="card shadow mb-4">
-            <div class="card-header bg-light">
+<!-- 過去に参加した配車計画 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-secondary text-white">
                 <h5 class="mb-0">
-                    <i class="bi bi-calendar-check"></i> 参加予定の配車計画
+                    <i class="bi bi-clock-history"></i> 過去に参加した配車計画
                 </h5>
             </div>
             <div class="card-body">
-                {% if participating_participations %}
+                {% if past_participations %}
                     <div class="row">
-                        {% for participation in participating_participations %}
+                        {% for participation in past_participations %}
                             <div class="col-md-6 col-lg-4 mb-3">
                                 <div class="card h-100">
-                                    <div class="card-header bg-light">
-                                        <h6 class="card-title mb-0">
-                                            <a href="{% url 'rides:ride_detail' participation.ride_plan.id %}" class="text-decoration-none">
-                                                {{ participation.ride_plan.title }}
-                                            </a>
-                                        </h6>
-                                    </div>
                                     <div class="card-body">
+                                        <h6 class="card-title">{{ participation.ride_plan.title }}</h6>
                                         <p class="card-text small">
                                             <i class="bi bi-geo-alt"></i> {{ participation.ride_plan.departure_location }} → {{ participation.ride_plan.destination }}<br>
                                             <i class="bi bi-calendar"></i> {{ participation.ride_plan.departure_time|date:"m/d H:i" }}<br>
-                                            <i class="bi bi-people"></i> {{ participation.ride_plan.current_participants }}/{{ participation.ride_plan.max_participants }}人<br>
-                                            {% if participation.ride_plan.price_per_person %}
-                                                <i class="bi bi-currency-yen"></i> {{ participation.ride_plan.price_per_person }}円<br>
-                                            {% endif %}
                                             <i class="bi bi-person"></i> {{ participation.ride_plan.creator.username }}<br>
-                                            {% if participation.pickup_location_name %}
-                                                <i class="bi bi-geo-alt text-success"></i> <strong>乗車:</strong> {{ participation.pickup_location_name }}<br>
-                                            {% endif %}
-                                            {% if participation.dropoff_location_name %}
-                                                <i class="bi bi-geo-alt-fill text-danger"></i> <strong>降車:</strong> {{ participation.dropoff_location_name }}<br>
-                                            {% endif %}
+                                            <i class="bi bi-clock"></i> {{ participation.created_at|date:"m/d H:i" }}参加<br>
+                                            <span class="badge bg-secondary">{{ participation.ride_plan.get_status_display }}</span>
                                         </p>
-                                    </div>
-                                    <div class="card-footer">
-                                        <div class="btn-group btn-group-sm w-100" role="group">
-                                            <a href="{% url 'rides:ride_detail' participation.ride_plan.id %}" class="btn btn-outline-primary">
-                                                <i class="bi bi-eye"></i> 詳細
-                                            </a>
-                                            <a href="{% url 'rides:cancel_reservation' participation.ride_plan.id %}" class="btn btn-outline-danger">
-                                                <i class="bi bi-x-circle"></i> キャンセル
-                                            </a>
-                                        </div>
+                                        <a href="{% url 'rides:ride_detail' participation.ride_plan.id %}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-eye"></i> 詳細
+                                        </a>
                                     </div>
                                 </div>
                             </div>
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-muted text-center py-3">
-                        <i class="bi bi-calendar-check"></i> 参加予定の配車計画はありません
-                    </p>
-                    <div class="text-center">
-                        <a href="{% url 'rides:index' %}" class="btn btn-primary">
-                            <i class="bi bi-search"></i> 配車計画を探す
-                        </a>
-                    </div>
+                    <p class="text-muted text-center">過去に参加した配車計画はありません。</p>
                 {% endif %}
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- 過去の配車計画 -->
-        <div class="card shadow mb-4">
+<!-- 統計情報 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
             <div class="card-header bg-light">
                 <h5 class="mb-0">
-                    <i class="bi bi-clock-history"></i> 過去の配車計画
+                    <i class="bi bi-graph-up"></i> 統計情報
                 </h5>
             </div>
             <div class="card-body">
-                {% if past_rides or past_participations %}
-                    <div class="row">
-                        {% for ride in past_rides %}
-                            <div class="col-md-6 col-lg-4 mb-3">
-                                <div class="card h-100">
-                                    <div class="card-header bg-light">
-                                        <h6 class="card-title mb-0">
-                                            <a href="{% url 'rides:ride_detail' ride.id %}" class="text-decoration-none">
-                                                {{ ride.title }}
-                                            </a>
-                                            <span class="badge bg-primary ms-2">作成者</span>
-                                        </h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="card-text small">
-                                            <i class="bi bi-geo-alt"></i> {{ ride.departure_location }} → {{ ride.destination }}<br>
-                                            <i class="bi bi-calendar"></i> {{ ride.departure_time|date:"m/d H:i" }}<br>
-                                            <span class="badge 
-                                                {% if ride.status == 'completed' %}bg-info
-                                                {% elif ride.status == 'cancelled' %}bg-danger
-                                                {% endif %}">
-                                                {{ ride.get_status_display }}
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div class="card-footer">
-                                        <a href="{% url 'rides:ride_detail' ride.id %}" class="btn btn-outline-primary btn-sm w-100">
-                                            <i class="bi bi-eye"></i> 詳細を見る
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                        
-                        {% for ride in past_participations %}
-                            <div class="col-md-6 col-lg-4 mb-3">
-                                <div class="card h-100">
-                                    <div class="card-header bg-light">
-                                        <h6 class="card-title mb-0">
-                                            <a href="{% url 'rides:ride_detail' ride.id %}" class="text-decoration-none">
-                                                {{ ride.title }}
-                                            </a>
-                                            <span class="badge bg-success ms-2">参加者</span>
-                                        </h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="card-text small">
-                                            <i class="bi bi-geo-alt"></i> {{ ride.departure_location }} → {{ ride.destination }}<br>
-                                            <i class="bi bi-calendar"></i> {{ ride.departure_time|date:"m/d H:i" }}<br>
-                                            <i class="bi bi-person"></i> {{ ride.creator.username }}<br>
-                                            <span class="badge 
-                                                {% if ride.status == 'completed' %}bg-info
-                                                {% elif ride.status == 'cancelled' %}bg-danger
-                                                {% endif %}">
-                                                {{ ride.get_status_display }}
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div class="card-footer">
-                                        <a href="{% url 'rides:ride_detail' ride.id %}" class="btn btn-outline-primary btn-sm w-100">
-                                            <i class="bi bi-eye"></i> 詳細を見る
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h4 class="text-primary">{{ created_rides.count }}</h4>
+                        <small class="text-muted">作成した計画</small>
                     </div>
-                {% else %}
-                    <p class="text-muted text-center py-3">
-                        <i class="bi bi-clock-history"></i> 過去の配車計画はありません
-                    </p>
-                {% endif %}
+                    <div class="col-md-3">
+                        <h4 class="text-success">{{ participating_participations.count }}</h4>
+                        <small class="text-muted">参加中の計画</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="text-info">{{ past_participations.count }}</h4>
+                        <small class="text-muted">過去参加した計画</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="text-warning">{{ created_rides|length|add:participating_participations.count|add:past_participations.count }}</h4>
+                        <small class="text-muted">総計画数</small>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <!-- アクションボタン -->
-        <div class="text-center">
-            <a href="{% url 'rides:history' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-clock-history"></i> 履歴を詳しく見る
-            </a>
         </div>
     </div>
 </div>

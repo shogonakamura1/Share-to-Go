@@ -92,6 +92,21 @@
                                             <i class="bi bi-person"></i> {{ ride.creator.username }}
                                         </p>
                                         
+                                        <!-- 運行状況・遅延情報 -->
+                                        {% if ride.is_in_progress %}
+                                            {% if ride.is_delayed %}
+                                                <div class="alert alert-danger py-2 mb-2" style="font-size: 0.9rem;">
+                                                    <i class="bi bi-exclamation-triangle"></i>
+                                                    <strong>{{ ride.delay_minutes }}分遅れています</strong>
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-success py-2 mb-2" style="font-size: 0.9rem;">
+                                                    <i class="bi bi-check-circle"></i>
+                                                    <strong>正常に運行中です</strong>
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                        
                                         {% if ride.description %}
                                             <p class="card-text small text-muted">
                                                 {{ ride.description|truncatechars:50 }}
@@ -121,6 +136,11 @@
                                         <!-- 作成者のみ編集・削除ボタンを表示 -->
                                         {% if ride.creator == user %}
                                             <div class="btn-group btn-group-sm w-100 mt-2" role="group">
+                                                {% if ride.is_in_progress %}
+                                                    <a href="{% url 'rides:driver_mode' ride.id %}" class="btn btn-success">
+                                                        <i class="bi bi-car-front"></i> 運転者
+                                                    </a>
+                                                {% endif %}
                                                 <a href="{% url 'rides:edit_ride' ride.id %}" class="btn btn-outline-primary">
                                                     <i class="bi bi-pencil"></i> 編集
                                                 </a>

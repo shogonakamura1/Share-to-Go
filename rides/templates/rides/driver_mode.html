@@ -1,0 +1,354 @@
+{% extends 'rides/base.html' %}
+{% load static %}
+
+{% block title %}運転者モード - {{ ride.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .driver-mode-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .driver-mode-popup {
+        background: white;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 400px;
+        max-height: 80vh;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .driver-mode-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        position: relative;
+    }
+
+    .driver-mode-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .driver-mode-header p {
+        margin: 5px 0 0 0;
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .close-button {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background-color 0.2s;
+    }
+
+    .close-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .driver-mode-content {
+        padding: 20px;
+    }
+
+    .ride-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .ride-info h3 {
+        margin: 0 0 10px 0;
+        color: #495057;
+        font-size: 1.1rem;
+    }
+
+    .ride-info p {
+        margin: 5px 0;
+        color: #6c757d;
+    }
+
+    .delay-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .delay-button {
+        padding: 15px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+
+    .delay-button.slight {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
+    .delay-button.slight:hover {
+        background-color: #e0a800;
+    }
+
+    .delay-button.five {
+        background-color: #fd7e14;
+        color: white;
+    }
+
+    .delay-button.five:hover {
+        background-color: #e8690b;
+    }
+
+    .delay-button.ten-plus {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .delay-button.ten-plus:hover {
+        background-color: #c82333;
+    }
+
+    .delay-button.normal {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .delay-button.normal:hover {
+        background-color: #218838;
+    }
+
+    .status-message {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .status-message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .status-message.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .swipe-indicator {
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 10px;
+    }
+
+    @media (max-width: 480px) {
+        .driver-mode-popup {
+            width: 95%;
+            margin: 10px;
+        }
+        
+        .driver-mode-header h2 {
+            font-size: 1.3rem;
+        }
+        
+        .delay-button {
+            padding: 12px;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="driver-mode-overlay" id="driverModeOverlay">
+    <div class="driver-mode-popup" id="driverModePopup">
+        <div class="driver-mode-header">
+            <button class="close-button" onclick="closeDriverMode()">&times;</button>
+            <h2>運転者モード</h2>
+            <p>{{ ride.title }}</p>
+        </div>
+        
+        <div class="driver-mode-content">
+            <div class="ride-info">
+                <h3>運行情報</h3>
+                <p><strong>出発地:</strong> {{ ride.departure_location }}</p>
+                <p><strong>目的地:</strong> {{ ride.destination }}</p>
+                <p><strong>出発時刻:</strong> {{ ride.departure_time|date:"m/d H:i" }}</p>
+                <p><strong>現在の遅延:</strong> 
+                    {% if ride.is_delayed %}
+                        <span style="color: #dc3545;">{{ ride.delay_minutes }}分遅れ</span>
+                    {% else %}
+                        <span style="color: #28a745;">遅延なし</span>
+                    {% endif %}
+                </p>
+            </div>
+            
+            <div class="delay-buttons">
+                <button class="delay-button slight" onclick="updateDelay(5)">
+                    5分遅れる
+                </button>
+                <button class="delay-button five" onclick="updateDelay(10)">
+                    10分遅れる
+                </button>
+                <button class="delay-button ten-plus" onclick="updateDelay(15)">
+                    15分以上遅れる
+                </button>
+                <button class="delay-button normal" onclick="updateDelay(0)">
+                    遅延なしに戻す
+                </button>
+            </div>
+            
+            <div id="statusMessage" class="status-message" style="display: none;"></div>
+            
+            <div class="swipe-indicator">
+                ↓ 下にスワイプして閉じる
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let startY = 0;
+let currentY = 0;
+let isDragging = false;
+
+// タッチイベントの設定
+document.getElementById('driverModePopup').addEventListener('touchstart', function(e) {
+    startY = e.touches[0].clientY;
+    isDragging = true;
+});
+
+document.getElementById('driverModePopup').addEventListener('touchmove', function(e) {
+    if (!isDragging) return;
+    
+    currentY = e.touches[0].clientY;
+    const deltaY = currentY - startY;
+    
+    if (deltaY > 0) {
+        const popup = document.getElementById('driverModePopup');
+        popup.style.transform = `translateY(${deltaY}px)`;
+        popup.style.opacity = Math.max(0.3, 1 - deltaY / 300);
+    }
+});
+
+document.getElementById('driverModePopup').addEventListener('touchend', function(e) {
+    if (!isDragging) return;
+    
+    const deltaY = currentY - startY;
+    if (deltaY > 150) {
+        closeDriverMode();
+    } else {
+        const popup = document.getElementById('driverModePopup');
+        popup.style.transform = '';
+        popup.style.opacity = '';
+    }
+    
+    isDragging = false;
+});
+
+function closeDriverMode() {
+    const overlay = document.getElementById('driverModeOverlay');
+    overlay.style.animation = 'fadeOut 0.3s ease-out';
+    setTimeout(() => {
+        window.history.back();
+    }, 300);
+}
+
+function updateDelay(delayMinutes) {
+    const statusMessage = document.getElementById('statusMessage');
+    statusMessage.style.display = 'block';
+    statusMessage.className = 'status-message';
+    statusMessage.textContent = '更新中...';
+    
+    const formData = new FormData();
+    formData.append('delay_minutes', delayMinutes);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    
+    fetch('{% url "rides:update_delay" ride.id %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusMessage.className = 'status-message success';
+            statusMessage.textContent = data.message;
+            
+            // 遅延情報を更新
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            statusMessage.className = 'status-message error';
+            statusMessage.textContent = data.error || '更新に失敗しました';
+        }
+    })
+    .catch(error => {
+        statusMessage.className = 'status-message error';
+        statusMessage.textContent = '通信エラーが発生しました';
+        console.error('Error:', error);
+    });
+}
+
+// ESCキーで閉じる
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDriverMode();
+    }
+});
+
+// オーバーレイクリックで閉じる
+document.getElementById('driverModeOverlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDriverMode();
+    }
+});
+</script>
+{% endblock %} 

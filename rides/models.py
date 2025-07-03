@@ -28,6 +28,11 @@ class RidePlan(models.Model):
         default='active',
         verbose_name="ステータス"
     )
+    # 遅延情報フィールド
+    delay_minutes = models.PositiveIntegerField(default=0, verbose_name="遅延時間（分）")
+    is_delayed = models.BooleanField(default=False, verbose_name="遅延中")
+    delay_updated_at = models.DateTimeField(auto_now=True, verbose_name="遅延情報更新日時")
+    
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
 
@@ -73,6 +78,19 @@ class RidePlan(models.Model):
     def remaining_seats(self):
         """残り席数を取得"""
         return self.max_participants - self.current_participants
+
+    @property
+    def is_in_progress(self):
+        """運行中かどうか（出発時刻から到着予定時刻まで）"""
+        # 簡易的に出発時刻から2時間後までを運行中とする
+        end_time = self.departure_time + timezone.timedelta(hours=2)
+        return self.departure_time <= timezone.now() <= end_time
+
+    def update_delay(self, delay_minutes):
+        """遅延情報を更新"""
+        self.delay_minutes = delay_minutes
+        self.is_delayed = delay_minutes > 0
+        self.save()
 
 
 class Participation(models.Model):

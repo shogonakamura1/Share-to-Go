@@ -6,7 +6,7 @@ from django.contrib import messages
 from .models import RidePlan, Participation
 from django.db import models
 from .forms import RidePlanForm, ParticipationForm
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.conf import settings
 from django.utils import timezone
 
@@ -42,7 +42,7 @@ def profile_view(request):
         participation__status='confirmed'
     ).order_by('-departure_time')
     
-    # 参加情報も取得
+    # 参加詳細情報も取得
     participating_participations = Participation.objects.filter(
         user=request.user,
         status='confirmed'
@@ -73,35 +73,80 @@ def profile_view(request):
 
 @login_required
 def home_view(request):
-    """ホーム画面（マイページ機能付き）"""
-    # 現在のユーザーが作成した配車計画（募集中・進行中）
-    my_rides = RidePlan.objects.filter(
-        creator=request.user,
-        status__in=['active', 'completed']
-    ).order_by('-created_at')
+    """ホーム画面（配車計画一覧 + 予約したものも当日中は表示）"""
+    # 募集中の配車計画を取得（最新順）
+    rides = RidePlan.objects.filter(
+        status='active'
+    ).select_related('creator').order_by('-created_at')
     
-    # 現在のユーザーが予約した配車計画（承認待ち・承認済み）
-    my_reservations = Participation.objects.filter(
+    # 締切時間が過ぎたものを除外（より緩やかな条件に変更）
+    current_time = timezone.now()
+    rides = rides.filter(
+        models.Q(deadline_time__isnull=True, departure_time__gt=current_time) |
+        models.Q(deadline_time__isnull=False, deadline_time__gt=current_time)
+    )
+    
+    # ユーザーが予約した配車計画も当日中は表示
+    user_reservations = Participation.objects.filter(
         user=request.user,
-        status__in=['pending', 'approved']
-    ).select_related('ride_plan').order_by('-created_at')
+        status='confirmed'
+    ).select_related('ride_plan', 'ride_plan__creator')
     
-    # 過去の配車計画・予約（完了・キャンセル）
-    past_rides = RidePlan.objects.filter(
-        creator=request.user,
-        status='completed'
-    ).order_by('-departure_time')
+    # 当日中の予約した配車計画を取得
+    today = timezone.now().date()
+    today_reservations = []
+    for reservation in user_reservations:
+        if reservation.ride_plan.departure_time.date() == today:
+            today_reservations.append(reservation.ride_plan)
     
-    past_reservations = Participation.objects.filter(
-        user=request.user,
-        status__in=['rejected', 'cancelled']
-    ).select_related('ride_plan').order_by('-created_at')
+    # 予約した配車計画を一覧に追加（重複を避ける）
+    existing_ride_ids = set(rides.values_list('id', flat=True))
+    for ride in today_reservations:
+        if ride.id not in existing_ride_ids:
+            rides = list(rides) + [ride]
+    
+    # 検索機能
+    search_query = request.GET.get('search', '')
+    if search_query:
+        rides = [ride for ride in rides if (
+            search_query.lower() in ride.title.lower() or
+            search_query.lower() in (ride.description or '').lower() or
+            search_query.lower() in ride.departure_location.lower() or
+            search_query.lower() in ride.destination.lower()
+        )]
+    
+    # フィルター機能
+    departure_filter = request.GET.get('departure', '')
+    if departure_filter:
+        rides = [ride for ride in rides if departure_filter.lower() in ride.departure_location.lower()]
+    
+    destination_filter = request.GET.get('destination', '')
+    if destination_filter:
+        rides = [ride for ride in rides if destination_filter.lower() in ride.destination.lower()]
+    
+    # 日時フィルター
+    date_filter = request.GET.get('date', '')
+    if date_filter:
+        rides = [ride for ride in rides if ride.departure_time.date().isoformat() == date_filter]
+    
+    # 価格フィルター
+    max_price = request.GET.get('max_price', '')
+    if max_price:
+        rides = [ride for ride in rides if ride.price_per_person and ride.price_per_person <= int(max_price)]
+    
+    # 参加者数フィルター
+    min_participants = request.GET.get('min_participants', '')
+    if min_participants:
+        rides = [ride for ride in rides if ride.max_participants >= int(min_participants)]
     
     context = {
-        'my_rides': my_rides,
-        'my_reservations': my_reservations,
-        'past_rides': past_rides,
-        'past_reservations': past_reservations,
+        'rides': rides,
+        'search_query': search_query,
+        'departure_filter': departure_filter,
+        'destination_filter': destination_filter,
+        'date_filter': date_filter,
+        'max_price': max_price,
+        'min_participants': min_participants,
     }
     
     return render(request, 'rides/home.html', context)
@@ -115,10 +160,10 @@ def index_view(request):
         status='active'
     ).select_related('creator').order_by('-created_at')
     
-    # 締切時間が過ぎたものを除外
+    # 締切時間が過ぎたものを除外（より緩やかな条件に変更）
     current_time = timezone.now()
     rides = rides.filter(
-        models.Q(deadline_time__isnull=True, departure_time__gt=current_time + timezone.timedelta(hours=1)) |
+        models.Q(deadline_time__isnull=True, departure_time__gt=current_time) |
         models.Q(deadline_time__isnull=False, deadline_time__gt=current_time)
     )
     
@@ -449,3 +494,86 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'ログアウトしました。')
     return redirect('rides:login')
+
+@login_required
+def driver_mode_view(request, ride_id):
+    """運転者モード画面"""
+    ride = get_object_or_404(RidePlan, id=ride_id)
+    
+    # 作成者以外はアクセス不可
+    if ride.creator != request.user:
+        messages.error(request, 'この機能にアクセスする権限がありません。')
+        return redirect('rides:ride_detail', ride_id=ride_id)
+    
+    # 運行中でない場合はアクセス不可
+    if not ride.is_in_progress:
+        messages.error(request, '運行中でない配車計画では運転者モードを使用できません。')
+        return redirect('rides:ride_detail', ride_id=ride_id)
+    
+    context = {
+        'ride': ride,
+    }
+    
+    return render(request, 'rides/driver_mode.html', context)
+
+@login_required
+def update_delay_view(request, ride_id):
+    """遅延情報更新API"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POSTメソッドのみ対応'}, status=405)
+    
+    ride = get_object_or_404(RidePlan, id=ride_id)
+    
+    # 作成者以外は更新不可
+    if ride.creator != request.user:
+        return JsonResponse({'error': '権限がありません'}, status=403)
+    
+    # 運行中でない場合は更新不可
+    if not ride.is_in_progress:
+        return JsonResponse({'error': '運行中でない配車計画では遅延情報を更新できません'}, status=400)
+    
+    try:
+        delay_minutes = int(request.POST.get('delay_minutes', 0))
+        if delay_minutes < 0:
+            return JsonResponse({'error': '遅延時間は0分以上で指定してください'}, status=400)
+        
+        ride.update_delay(delay_minutes)
+        
+        return JsonResponse({
+            'success': True,
+            'delay_minutes': ride.delay_minutes,
+            'is_delayed': ride.is_delayed,
+            'message': f'遅延情報を更新しました（{delay_minutes}分遅れ）' if delay_minutes > 0 else '遅延情報をリセットしました'
+        })
+        
+    except ValueError:
+        return JsonResponse({'error': '無効な遅延時間です'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'更新に失敗しました: {str(e)}'}, status=500)
+
+@login_required
+def driver_mode_list_view(request):
+    """運転者モード一覧画面"""
+    # ユーザーが作成した配車計画で運行中のものを取得
+    user_rides = RidePlan.objects.filter(
+        creator=request.user
+    ).order_by('-departure_time')
+    
+    # 運行中の配車計画を抽出
+    in_progress_rides = []
+    for ride in user_rides:
+        if ride.is_in_progress:
+            in_progress_rides.append(ride)
+    
+    total_rides = user_rides.count()
+    in_progress_count = len(in_progress_rides)
+    completed_count = total_rides - in_progress_count
+    
+    context = {
+        'in_progress_rides': in_progress_rides,
+        'total_rides': total_rides,
+        'in_progress_count': in_progress_count,
+        'completed_count': completed_count,
+    }
+    
+    return render(request, 'rides/driver_mode_list.html', context)

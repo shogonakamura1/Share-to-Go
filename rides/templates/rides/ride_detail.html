@@ -82,6 +82,26 @@
                     <p class="text-muted">{{ ride.creator.username }}</p>
                 </div>
                 
+                <!-- 運行状況・遅延情報 -->
+                {% if ride.is_in_progress %}
+                    <div class="mb-4">
+                        <h6><i class="bi bi-car-front"></i> 運行状況</h6>
+                        {% if ride.is_delayed %}
+                            <div class="alert alert-danger py-2">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>{{ ride.delay_minutes }}分遅れています</strong>
+                                <br><small class="text-muted">最終更新: {{ ride.delay_updated_at|date:"m/d H:i" }}</small>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-success py-2">
+                                <i class="bi bi-check-circle"></i>
+                                <strong>正常に運行中です</strong>
+                                <br><small class="text-muted">最終更新: {{ ride.delay_updated_at|date:"m/d H:i" }}</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                
                 <!-- 作成日時 -->
                 <div class="text-muted small">
                     <i class="bi bi-clock"></i> {{ ride.created_at|date:"Y年m月d日 H:i" }}作成
@@ -178,6 +198,14 @@
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle"></i> 自分が作成した配車計画です
                             </div>
+                            
+                            <!-- 運転者モードボタン（運行中のみ表示） -->
+                            {% if ride.is_in_progress %}
+                                <a href="{% url 'rides:driver_mode' ride.id %}" class="btn btn-success w-100 mb-2">
+                                    <i class="bi bi-car-front"></i> 運転者モード
+                                </a>
+                            {% endif %}
+                            
                             <a href="{% url 'rides:edit_ride' ride.id %}" class="btn btn-primary w-100 mb-2">
                                 <i class="bi bi-pencil"></i> 編集
                             </a>
