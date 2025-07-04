@@ -122,14 +122,7 @@
         text-align: center;
     }
 
-    .delay-button.slight {
-        background-color: #ffc107;
-        color: #212529;
-    }
 
-    .delay-button.slight:hover {
-        background-color: #e0a800;
-    }
 
     .delay-button.five {
         background-color: #fd7e14;
@@ -149,6 +142,15 @@
         background-color: #c82333;
     }
 
+    .delay-button.fifteen-plus {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .delay-button.fifteen-plus:hover {
+        background-color: #c82333;
+    }
+
     .delay-button.normal {
         background-color: #28a745;
         color: white;
@@ -156,6 +158,15 @@
 
     .delay-button.normal:hover {
         background-color: #218838;
+    }
+
+    .delay-button.possibility {
+        background-color: #6f42c1;
+        color: white;
+    }
+
+    .delay-button.possibility:hover {
+        background-color: #5a32a3;
     }
 
     .status-message {
@@ -225,38 +236,26 @@
                         <span style="color: #28a745;">遅延なし</span>
                     {% endif %}
                 </p>
-                <p><strong>遅延可能性:</strong> 
-                    {% if ride.delay_possibility %}
-                        <span style="color: #ffc107;">数分遅れる可能性あり</span>
-                    {% else %}
-                        <span style="color: #28a745;">遅延の可能性なし</span>
-                    {% endif %}
-                </p>
+
             </div>
             
             <div class="delay-buttons">
-                <button class="delay-button slight" onclick="updateDelay(5)">
-                    5分遅れる
-                </button>
-                <button class="delay-button five" onclick="updateDelay(10)">
-                    10分遅れる
-                </button>
-                <button class="delay-button ten-plus" onclick="updateDelay(15)">
-                    15分以上遅れる
-                </button>
-                <button class="delay-button normal" onclick="updateDelay(0)">
-                    遅延なしに戻す
-                </button>
-                
-                <hr style="margin: 15px 0; border-color: #dee2e6;">
-                
-                <button class="delay-button possibility" onclick="updateDelayPossibility(true)" 
+                <button class="delay-button possibility" onclick="updateDelayStatus('possibility')" 
                         style="background-color: #6f42c1; color: white;">
                     数分遅れる可能性あり
                 </button>
-                <button class="delay-button possibility-off" onclick="updateDelayPossibility(false)"
-                        style="background-color: #6c757d; color: white;">
-                    遅延の可能性なし
+                <button class="delay-button five" onclick="updateDelayStatus('5min')">
+                    5分遅れる
+                </button>
+                <button class="delay-button ten-plus" onclick="updateDelayStatus('10min')">
+                    10分遅れる
+                </button>
+                <button class="delay-button fifteen-plus" onclick="updateDelayStatus('15min_plus')"
+                        style="background-color: #dc3545; color: white;">
+                    15分以上遅れる
+                </button>
+                <button class="delay-button normal" onclick="updateDelayStatus('no_delay')">
+                    遅れなし
                 </button>
             </div>
             
@@ -316,17 +315,19 @@ function closeDriverMode() {
     }, 300);
 }
 
-function updateDelay(delayMinutes) {
+
+
+function updateDelayStatus(statusType) {
     const statusMessage = document.getElementById('statusMessage');
     statusMessage.style.display = 'block';
     statusMessage.className = 'status-message';
     statusMessage.textContent = '更新中...';
     
     const formData = new FormData();
-    formData.append('delay_minutes', delayMinutes);
+    formData.append('status_type', statusType);
     formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
     
-    fetch('{% url "rides:update_delay" ride.id %}', {
+    fetch('{% url "rides:update_delay_status" ride.id %}', {
         method: 'POST',
         body: formData,
         headers: {
@@ -340,45 +341,6 @@ function updateDelay(delayMinutes) {
             statusMessage.textContent = data.message;
             
             // 遅延情報を更新
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-        } else {
-            statusMessage.className = 'status-message error';
-            statusMessage.textContent = data.error || '更新に失敗しました';
-        }
-    })
-    .catch(error => {
-        statusMessage.className = 'status-message error';
-        statusMessage.textContent = '通信エラーが発生しました';
-        console.error('Error:', error);
-    });
-}
-
-function updateDelayPossibility(possibility) {
-    const statusMessage = document.getElementById('statusMessage');
-    statusMessage.style.display = 'block';
-    statusMessage.className = 'status-message';
-    statusMessage.textContent = '更新中...';
-    
-    const formData = new FormData();
-    formData.append('possibility', possibility);
-    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-    
-    fetch('{% url "rides:update_delay_possibility" ride.id %}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            statusMessage.className = 'status-message success';
-            statusMessage.textContent = data.message;
-            
-            // 遅延可能性情報を更新
             setTimeout(() => {
                 location.reload();
             }, 1500);

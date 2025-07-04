@@ -9,9 +9,9 @@ class RidePlanForm(forms.ModelForm):
     selected_groups = forms.ModelMultipleChoiceField(
         queryset=Group.objects.none(),
         widget=forms.CheckboxSelectMultiple,
-        required=False,
+        required=True,
         label="表示グループ",
-        help_text="配車計画を表示するグループを選択してください（複数選択可能）"
+        help_text="配車計画を表示するグループを選択してください（複数選択可能・必須）"
     )
     
     class Meta:
@@ -110,6 +110,15 @@ class RidePlanForm(forms.ModelForm):
             raise forms.ValidationError('料金は0円以上の値を入力してください。')
         
         return price_per_person
+    
+    def clean_selected_groups(self):
+        """グループ選択のバリデーション"""
+        selected_groups = self.cleaned_data.get('selected_groups')
+        
+        if not selected_groups:
+            raise forms.ValidationError('表示するグループを選択してください。')
+        
+        return selected_groups
 
 class ParticipationForm(forms.ModelForm):
     """参加予約フォーム"""

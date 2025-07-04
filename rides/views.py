@@ -287,6 +287,11 @@ def create_ride_view(request):
     # ユーザーが参加しているグループを取得
     user_groups = Group.objects.filter(groupmembership__user=request.user)
     
+    # グループに参加していない場合はエラー
+    if not user_groups.exists():
+        messages.error(request, '配車計画を作成するには、まずグループに参加する必要があります。')
+        return redirect('rides:profile')
+    
     if request.method == 'POST':
         form = RidePlanForm(request.POST)
         # フォームのグループ選択肢をユーザーのグループに制限
@@ -328,6 +333,11 @@ def edit_ride_view(request, ride_id):
     if ride.creator != request.user:
         messages.error(request, 'この配車計画を編集する権限がありません。')
         return redirect('rides:ride_detail', ride_id=ride_id)
+    
+    # グループに参加していない場合はエラー
+    if not user_groups.exists():
+        messages.error(request, '配車計画を編集するには、まずグループに参加する必要があります。')
+        return redirect('rides:profile')
     
     # 参加者がいる場合は編集不可
     if ride.current_participants > 0:
@@ -637,6 +647,64 @@ def update_delay_possibility_view(request, ride_id):
             'success': True,
             'delay_possibility': ride.delay_possibility,
             'message': f'遅延可能性を更新しました（{"可能性あり" if possibility else "可能性なし"}）'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': f'更新に失敗しました: {str(e)}'}, status=500)
+
+@login_required
+def update_delay_status_view(request, ride_id):
+    """遅延状況統合更新API"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POSTメソッドのみ対応'}, status=405)
+    
+    ride = get_object_or_404(RidePlan, id=ride_id)
+    
+    # 作成者以外は更新不可
+    if ride.creator != request.user:
+        return JsonResponse({'error': '権限がありません'}, status=403)
+    
+    # 運行中でない場合は更新不可
+    if not ride.is_in_progress:
+        return JsonResponse({'error': '運行中でない配車計画では遅延情報を更新できません'}, status=400)
+    
+    try:
+        status_type = request.POST.get('status_type')
+        
+        if status_type == 'possibility':
+            # 数分遅れる可能性あり
+            ride.update_delay_possibility(True)
+            ride.update_delay(0)  # 遅延時間はリセット
+            message = '数分遅れる可能性ありに設定しました'
+        elif status_type == '5min':
+            # 5分遅れ
+            ride.update_delay(5)
+            ride.update_delay_possibility(False)  # 可能性はリセット
+            message = '5分遅れに設定しました'
+        elif status_type == '10min':
+            # 10分遅れ
+            ride.update_delay(10)
+            ride.update_delay_possibility(False)  # 可能性はリセット
+            message = '10分遅れに設定しました'
+        elif status_type == '15min_plus':
+            # 15分以上遅れ
+            ride.update_delay(15)
+            ride.update_delay_possibility(False)  # 可能性はリセット
+            message = '15分以上遅れに設定しました'
+        elif status_type == 'no_delay':
+            # 遅れなし
+            ride.update_delay(0)
+            ride.update_delay_possibility(False)
+            message = '遅れなしに設定しました'
+        else:
+            return JsonResponse({'error': '無効なステータスタイプです'}, status=400)
+        
+        return JsonResponse({
+            'success': True,
+            'delay_minutes': ride.delay_minutes,
+            'is_delayed': ride.is_delayed,
+            'delay_possibility': ride.delay_possibility,
+            'message': message
         })
         
     except Exception as e:
