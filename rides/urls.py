@@ -43,6 +43,9 @@ urlpatterns = [
     # 遅延状況統合更新API
     path('rides/<int:ride_id>/update-delay-status/', views.update_delay_status_view, name='update_delay_status'),
     
+    # 運転終了API
+    path('rides/<int:ride_id>/complete/', views.complete_ride_view, name='complete_ride'),
+    
     # 履歴画面
     path('history/', views.history_view, name='history'),
     

@@ -12,15 +12,17 @@
                     <h4 class="mb-0">
                         <i class="bi bi-car-front"></i> {{ ride.title }}
                     </h4>
-                    <span class="badge bg-light text-dark">
-                        {% if ride.status == 'active' %}
-                            <i class="bi bi-check-circle"></i> 募集中
-                        {% elif ride.status == 'full' %}
-                            <i class="bi bi-x-circle"></i> 定員満員
-                        {% elif ride.status == 'cancelled' %}
-                            <i class="bi bi-x-circle"></i> キャンセル
-                        {% elif ride.status == 'completed' %}
-                            <i class="bi bi-check-circle"></i> 完了
+                    <span class="badge bg-{{ ride.display_status_color }} text-white">
+                        {% if ride.display_status == 'active' %}
+                            <i class="bi bi-check-circle"></i> {{ ride.display_status_text }}
+                        {% elif ride.display_status == 'full' %}
+                            <i class="bi bi-x-circle"></i> {{ ride.display_status_text }}
+                        {% elif ride.display_status == 'cancelled' %}
+                            <i class="bi bi-x-circle"></i> {{ ride.display_status_text }}
+                        {% elif ride.display_status == 'completed' %}
+                            <i class="bi bi-check-circle"></i> {{ ride.display_status_text }}
+                        {% elif ride.display_status == 'deadline_passed' %}
+                            <i class="bi bi-clock"></i> {{ ride.display_status_text }}
                         {% endif %}
                     </span>
                 </div>
@@ -234,6 +236,14 @@
                             <!-- 期限切れの場合 -->
                             <div class="alert alert-danger">
                                 <i class="bi bi-clock"></i> 期限切れです
+                            </div>
+                            <button class="btn btn-secondary w-100" disabled>
+                                予約できません
+                            </button>
+                        {% elif ride.display_status == 'deadline_passed' %}
+                            <!-- 締切済みの場合 -->
+                            <div class="alert alert-warning">
+                                <i class="bi bi-clock"></i> 締切済みです
                             </div>
                             <button class="btn btn-secondary w-100" disabled>
                                 予約できません

@@ -75,6 +75,11 @@
                                             <i class="bi bi-car-front"></i> 運転者モードに入る
                                         </a>
                                         
+                                        <!-- 運転終了ボタン -->
+                                        <button class="btn btn-warning w-100 mb-2" onclick="confirmCompleteRide({{ ride.id }}, '{{ ride.title }}')">
+                                            <i class="bi bi-stop-circle"></i> 運転終了
+                                        </button>
+                                        
                                         <!-- 詳細ボタン -->
                                         <a href="{% url 'rides:ride_detail' ride.id %}" class="btn btn-outline-primary w-100">
                                             <i class="bi bi-eye"></i> 詳細を見る
@@ -175,4 +180,125 @@
         </div>
     </div>
 </div>
+
+<!-- 確認ポップアップ -->
+<div class="modal fade" id="completeRideModal" tabindex="-1" aria-labelledby="completeRideModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="completeRideModalLabel">
+                    <i class="bi bi-exclamation-triangle"></i> 運転終了の確認
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>本当に運転を終了しますか？</p>
+                <p class="text-muted small">この操作は取り消すことができません。</p>
+                <div id="rideInfo" class="alert alert-info">
+                    <!-- 配車計画情報がここに表示されます -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> キャンセル
+                </button>
+                <button type="button" class="btn btn-warning" id="confirmCompleteBtn">
+                    <i class="bi bi-stop-circle"></i> 運転終了
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRideId = null;
+
+function confirmCompleteRide(rideId, rideTitle) {
+    currentRideId = rideId;
+    
+    // 配車計画情報を表示
+    document.getElementById('rideInfo').innerHTML = `
+        <strong>${rideTitle}</strong><br>
+        <small class="text-muted">この配車計画を完了にします</small>
+    `;
+    
+    // モーダルを表示
+    const modal = new bootstrap.Modal(document.getElementById('completeRideModal'));
+    modal.show();
+}
+
+document.getElementById('confirmCompleteBtn').addEventListener('click', function() {
+    if (!currentRideId) return;
+    
+    // ボタンを無効化
+    this.disabled = true;
+    this.innerHTML = '<i class="bi bi-hourglass-split"></i> 処理中...';
+    
+    // CSRFトークンを取得
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // APIリクエスト
+    fetch(`{% url 'rides:complete_ride' 0 %}`.replace('0', currentRideId), {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken,
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 成功時の処理
+            const modal = bootstrap.Modal.getInstance(document.getElementById('completeRideModal'));
+            modal.hide();
+            
+            // 成功メッセージを表示
+            showAlert('success', data.message);
+            
+            // プロフィール画面にリダイレクト
+            setTimeout(() => {
+                window.location.href = '{% url "rides:profile" %}';
+            }, 1500);
+        } else {
+            // エラー時の処理
+            showAlert('danger', data.error || '運転終了に失敗しました');
+            
+            // ボタンを元に戻す
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-stop-circle"></i> 運転終了';
+        }
+    })
+    .catch(error => {
+        // 通信エラー時の処理
+        showAlert('danger', '通信エラーが発生しました');
+        console.error('Error:', error);
+        
+        // ボタンを元に戻す
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-stop-circle"></i> 運転終了';
+    });
+});
+
+function showAlert(type, message) {
+    // アラートを表示する関数
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // 5秒後に自動削除
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+
+{% csrf_token %}
 {% endblock %} 

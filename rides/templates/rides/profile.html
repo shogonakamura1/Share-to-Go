@@ -179,8 +179,8 @@
                                             <i class="bi bi-geo-alt"></i> {{ ride.departure_location }} → {{ ride.destination }}<br>
                                             <i class="bi bi-calendar"></i> {{ ride.departure_time|date:"m/d H:i" }}<br>
                                             <i class="bi bi-people"></i> {{ ride.current_participants }}/{{ ride.max_participants }}人<br>
-                                            <span class="badge bg-{% if ride.status == 'active' %}success{% elif ride.status == 'completed' %}primary{% elif ride.status == 'cancelled' %}danger{% else %}secondary{% endif %}">
-                                                {{ ride.get_status_display }}
+                                            <span class="badge bg-{{ ride.display_status_color }}">
+                                                {{ ride.display_status_text }}
                                             </span>
                                         </p>
                                         <div class="btn-group btn-group-sm" role="group">

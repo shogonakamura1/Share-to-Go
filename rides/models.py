@@ -137,6 +137,44 @@ class RidePlan(models.Model):
         end_time = self.departure_time + timezone.timedelta(hours=2)
         return self.departure_time <= timezone.now() <= end_time
 
+    @property
+    def display_status(self):
+        """表示用の動的ステータス"""
+        if self.status == 'cancelled':
+            return 'cancelled'
+        elif self.status == 'completed':
+            return 'completed'
+        elif self.is_deadline_passed:
+            return 'deadline_passed'
+        elif self.is_full:
+            return 'full'
+        else:
+            return 'active'
+
+    @property
+    def display_status_text(self):
+        """表示用の動的ステータステキスト"""
+        status_map = {
+            'active': '募集中',
+            'full': '定員満員',
+            'cancelled': 'キャンセル',
+            'completed': '完了',
+            'deadline_passed': '締切済み'
+        }
+        return status_map.get(self.display_status, '募集中')
+
+    @property
+    def display_status_color(self):
+        """表示用の動的ステータス色"""
+        color_map = {
+            'active': 'success',
+            'full': 'warning',
+            'cancelled': 'danger',
+            'completed': 'primary',
+            'deadline_passed': 'secondary'
+        }
+        return color_map.get(self.display_status, 'success')
+
     def update_delay(self, delay_minutes):
         """遅延情報を更新"""
         self.delay_minutes = delay_minutes
@@ -146,6 +184,11 @@ class RidePlan(models.Model):
     def update_delay_possibility(self, possibility):
         """遅延可能性を更新"""
         self.delay_possibility = possibility
+        self.save()
+
+    def complete_ride(self):
+        """運転終了（配車計画を完了にする）"""
+        self.status = 'completed'
         self.save()
 
 

@@ -718,10 +718,10 @@ def driver_mode_list_view(request):
         creator=request.user
     ).order_by('-departure_time')
     
-    # 運行中の配車計画を抽出
+    # 運行中の配車計画を抽出（完了したものは除外）
     in_progress_rides = []
     for ride in user_rides:
-        if ride.is_in_progress:
+        if ride.is_in_progress and ride.status != 'completed':
             in_progress_rides.append(ride)
     
     total_rides = user_rides.count()
@@ -797,3 +797,30 @@ def join_group_view(request):
     }
     
     return render(request, 'rides/join_group.html', context)
+
+@login_required
+def complete_ride_view(request, ride_id):
+    """運転終了API"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POSTメソッドのみ対応'}, status=405)
+    
+    ride = get_object_or_404(RidePlan, id=ride_id)
+    
+    # 作成者以外は終了不可
+    if ride.creator != request.user:
+        return JsonResponse({'error': '権限がありません'}, status=403)
+    
+    # 運行中でない場合は終了不可
+    if not ride.is_in_progress:
+        return JsonResponse({'error': '運行中でない配車計画は終了できません'}, status=400)
+    
+    try:
+        ride.complete_ride()
+        
+        return JsonResponse({
+            'success': True,
+            'message': '運転を終了しました'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': f'終了に失敗しました: {str(e)}'}, status=500)
